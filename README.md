@@ -118,14 +118,69 @@ Access tokens also carry `typ: access`; the short-lived token between password a
 
 TOTP is RFC 6238 (SHA-1, 6 digits, 30 s, plus or minus one step) with replay protection; secrets are AES-256-GCM encrypted at rest; passwords use BCrypt cost 12; five failed logins lock the account for 15 minutes; login errors are uniform. The `prod` profile refuses to start with the built-in development `JWT_SECRET` or `ENCRYPTION_KEY`. `scripts/auth-smoke-test.py` runs the whole flow against a live app.
 
-## Run
+## Run locally: full flow
+
+Prerequisites: Git, and either Docker (option A) or Java 21, Maven, Node 20+ and a PostgreSQL 16 (option B).
+
+### Option A: Docker (one command)
+
+Check out both repos side by side, then start the whole stack:
 
 ```bash
-docker run -d -p 5432:5432 -e POSTGRES_USER=equigcc -e POSTGRES_PASSWORD=equigcc -e POSTGRES_DB=equigcc postgres:16
-JWT_SECRET=<32+ random bytes> mvn spring-boot:run
-mvn test                          # unit + web-slice tests
-./scripts/smoke-test.sh           # end-to-end against the running app (needs psql)
+git clone https://github.com/arjunsambyal997/Carta-New-Backend.git
+git clone https://github.com/arjunsambyal997/Carta-New-Frontend.git
+cd Carta-New-Backend
+docker compose up --build
 ```
+
+This starts PostgreSQL 16, the backend on http://localhost:8080 and the UI on http://localhost:3000. Flyway creates the schema on first start. Data is kept in the `pgdata` volume; `docker compose down -v` wipes it. Reset links are printed in the backend logs: `docker compose logs -f backend`.
+
+### Option B: run the pieces yourself
+
+```bash
+# 1. Database. Use the container, or your own Postgres (see the env vars below)
+docker run -d -p 5432:5432 -e POSTGRES_USER=equigcc -e POSTGRES_PASSWORD=equigcc -e POSTGRES_DB=equigcc postgres:16
+
+# 2. Backend (terminal 1), listens on :8080
+mvn spring-boot:run
+
+# 3. Frontend (terminal 2), listens on :3000
+cd ../Carta-New-Frontend && npm install
+BACKEND_URL=http://localhost:8080 npm run dev
+```
+
+Using your own PostgreSQL instead of the container, for example database `postgres`, user `postgres`:
+
+```bash
+DB_URL=jdbc:postgresql://localhost:5432/postgres DB_USER=postgres DB_PASSWORD=<your password> mvn spring-boot:run
+```
+
+The development defaults for `JWT_SECRET` and `ENCRYPTION_KEY` are built in and fine locally. The `prod` profile refuses to start with them.
+
+### Walk through the product
+
+1. Open http://localhost:3000/signup. Create an organization (name, licence number, certificate prefix, which must be unique per organization). You become the FOUNDER.
+2. `/security`: scan the QR with an authenticator app and enter a code. Data stays locked until two-factor is on.
+3. `/setup`: add a share class and shareholders. `/members` invites team members (a temporary password is shown once).
+4. `/certificates/new`: issue a certificate. `/certificates` lists them with English and Arabic PDFs. Scan the QR or open `/verify/<number>?h=<hash>` to check it.
+5. `/` shows the cap table, `/ownership` the ownership tree, `/waterfall` an exit waterfall.
+6. `/resolutions`: draft a board resolution, open voting, vote, close.
+7. `/ubo`: record the owners of a corporate holder, review the beneficial owners, export CSV or PDF.
+8. `/succession`: define a conversion rule, preview it, execute it. `/vault`: upload and download documents.
+9. `/audit`: check the hash-chain integrity.
+10. Password reset: sign out, choose "Forgot your password?", and enter your email. With no mail server set, the link is written to the backend log on a line starting `MAIL NOT CONFIGURED`. Open it, set a new password (12 characters or more), and sign in with the new password plus a code from your authenticator app. `/password` changes it while signed in.
+11. The EN / العربية toggle in the top bar flips the language and the layout direction.
+
+### Tests
+
+```bash
+mvn test                                     # unit + web-slice tests
+./scripts/smoke-test.sh                      # end-to-end against the running app (needs psql)
+python3 scripts/auth-smoke-test.py           # signup, login, TOTP, invites
+python3 scripts/password-reset-smoke-test.py # reads the link from /tmp/backend.log, so run the backend with: mvn spring-boot:run > /tmp/backend.log
+```
+
+Other scripts in `scripts/`: `ubo-smoke-test.py`, `succession-vault-smoke-test.py`, `governance-smoke-test.sh`.
 
 Password reset email goes out through SMTP when `spring.mail.host` (env `SPRING_MAIL_HOST`, plus `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`) is set, from `MAIL_FROM`, with links built from `PUBLIC_BASE_URL`. Without a host the link is written to the log (development only) and the `prod` profile refuses to start. Existing access tokens stay valid until they expire (one hour) after a reset. `scripts/password-reset-smoke-test.py` runs the flow.
 
@@ -133,4 +188,4 @@ Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (ba
 
 ## Not built yet (from the PRD)
 
-Redis rate limiting, e-signature integration, official UBO filing formats.
+Redis rate limiting, token refresh, e-signature integration, official UBO filing formats.
