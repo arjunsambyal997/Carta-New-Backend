@@ -32,4 +32,15 @@ public interface ShareIssuanceRepository extends JpaRepository<ShareIssuance, UU
 
     @EntityGraph(attributePaths = {"organization", "shareClass", "shareholder"})
     Optional<ShareIssuance> findByCertificateNo(String certificateNo);
+
+    /** Every certificate of an organization, newest first, including cancelled ones. */
+    @Query("""
+            select i from ShareIssuance i
+              join fetch i.shareClass
+              join fetch i.shareholder
+              join fetch i.organization
+             where i.organization.id = :orgId
+             order by i.createdAt desc, i.certificateNo desc
+            """)
+    List<ShareIssuance> findAllByOrganization(@Param("orgId") UUID organizationId);
 }

@@ -49,6 +49,7 @@ class ShareCertificateControllerTest {
     @MockBean CertificateIssuanceService issuanceService;
     @MockBean CapTableService capTableService;
     @MockBean WaterfallService waterfallService;
+    @MockBean com.equigcc.service.CertificatePdfService pdfService;
 
     private final String body = """
             {"shareholderId":"%s","shareClassId":"%s","quantity":1000,"pricePerShare":10.00}
@@ -116,6 +117,33 @@ class ShareCertificateControllerTest {
 
     private String token(String role, UUID org, boolean mfa) {
         return jwt.issue("user-1", List.of(role), List.of(org), mfa, Duration.ofMinutes(5));
+    }
+
+    @Test
+    void shareholderDownloadsOwnPdfButNotSomeoneElses() throws Exception {
+        when(issuanceService.findInOrganization(ORG, "ACME-000001")).thenReturn(sampleIssuance());
+        when(pdfService.render(any())).thenReturn("%PDF-1.7".getBytes());
+        String own = jwt.issue("h@x.ae", List.of("SHAREHOLDER"), List.of(ORG), true, HOLDER, Duration.ofMinutes(5));
+        String other = jwt.issue("o@x.ae", List.of("SHAREHOLDER"), List.of(ORG), true, UUID.randomUUID(), Duration.ofMinutes(5));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/organizations/" + ORG + "/certificates/ACME-000001/pdf")
+                        .header("Authorization", "Bearer " + own))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "application/pdf"))
+                .andExpect(header().string("X-Content-Type-Options", "nosniff"));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/organizations/" + ORG + "/certificates/ACME-000001/pdf")
+                        .header("Authorization", "Bearer " + other))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void shareholderCannotListAllCertificates() throws Exception {
+        String own = jwt.issue("h@x.ae", List.of("SHAREHOLDER"), List.of(ORG), true, HOLDER, Duration.ofMinutes(5));
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .get("/api/v1/organizations/" + ORG + "/certificates")
+                        .header("Authorization", "Bearer " + own))
+                .andExpect(status().isForbidden());
     }
 
     private static ShareIssuance sampleIssuance() {

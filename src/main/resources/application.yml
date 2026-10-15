@@ -28,7 +28,7 @@ equigcc:
     max-failed-logins: 5
     lockout: PT15M
   certificates:
-    verification-base-url: ${CERT_VERIFY_URL:https://verify.equigcc.com/c/}
+    verification-base-url: ${CERT_VERIFY_URL:http://localhost:3000/verify/}
 
 springdoc:
   swagger-ui:

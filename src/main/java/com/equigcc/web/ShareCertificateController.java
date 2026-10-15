@@ -38,8 +38,10 @@ public class ShareCertificateController {
     private final CapTableService capTableService;
     private final WaterfallService waterfallService;
     private final String verificationBaseUrl;
+    private final com.equigcc.service.CertificatePdfService pdfService;
 
-    public ShareCertificateController(CertificateIssuanceService issuanceService,
+    public ShareCertificateController(com.equigcc.service.CertificatePdfService pdfService,
+                                      CertificateIssuanceService issuanceService,
                                       CapTableService capTableService,
                                       WaterfallService waterfallService,
                                       @Value("${equigcc.certificates.verification-base-url}") String verificationBaseUrl) {
@@ -47,6 +49,7 @@ public class ShareCertificateController {
         this.capTableService = capTableService;
         this.waterfallService = waterfallService;
         this.verificationBaseUrl = verificationBaseUrl;
+        this.pdfService = pdfService;
     }
 
     @Operation(summary = "Issue a new share certificate",
@@ -90,6 +93,38 @@ public class ShareCertificateController {
             + "and @orgAccess.canAccess(authentication, #orgId)")
     public WaterfallResult waterfall(@PathVariable UUID orgId, @RequestParam BigDecimal exitValue) {
         return waterfallService.calculate(orgId, exitValue);
+    }
+
+    @Operation(summary = "List the organization's certificates, newest first")
+    @GetMapping("/organizations/{orgId}/certificates")
+    @PreAuthorize("hasAnyRole('FOUNDER','CORPORATE_SECRETARY','BOARD_MEMBER','LEGAL_AUDITOR') "
+            + "and @orgAccess.canAccess(authentication, #orgId)")
+    public java.util.List<CertificateResponse> list(@PathVariable UUID orgId) {
+        return issuanceService.listForOrganization(orgId).stream()
+                .map(i -> CertificateResponse.from(i, verificationBaseUrl)).toList();
+    }
+
+    @Operation(summary = "Bilingual PDF of a certificate with a verification QR code",
+            description = "Founders, secretaries and auditors can download any certificate; a shareholder only their own.")
+    @GetMapping(value = "/organizations/{orgId}/certificates/{certificateNo}/pdf", produces = "application/pdf")
+    @PreAuthorize("hasAnyRole('FOUNDER','CORPORATE_SECRETARY','LEGAL_AUDITOR','SHAREHOLDER') "
+            + "and @orgAccess.canAccess(authentication, #orgId)")
+    public ResponseEntity<byte[]> pdf(@PathVariable UUID orgId, @PathVariable String certificateNo, Authentication auth) {
+        ShareIssuance i = issuanceService.findInOrganization(orgId, certificateNo);
+        boolean isHolder = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SHAREHOLDER"));
+        if (isHolder) {
+            var me = (com.equigcc.security.AuthenticatedUser) auth.getPrincipal();
+            if (me.shareholderId() == null || !me.shareholderId().equals(i.getShareholder().getId())) {
+                throw new com.equigcc.service.NotFoundException("Certificate " + certificateNo + " not found");
+            }
+        }
+        byte[] bytes = pdfService.render(i);
+        return ResponseEntity.ok()
+                .header("Content-Disposition", "attachment; filename=\"" + i.getCertificateNo() + ".pdf\"")
+                .header("X-Content-Type-Options", "nosniff")
+                .header("Cache-Control", "no-store")
+                .contentType(org.springframework.http.MediaType.APPLICATION_PDF)
+                .body(bytes);
     }
 
     @Operation(summary = "Public QR verification of a certificate")

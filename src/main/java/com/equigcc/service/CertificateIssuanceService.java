@@ -1,5 +1,6 @@
 package com.equigcc.service;
 
+import java.util.UUID;
 import com.equigcc.domain.InstrumentType;
 import com.equigcc.domain.Organization;
 import com.equigcc.domain.ShareClass;
@@ -103,6 +104,21 @@ public class CertificateIssuanceService {
     public ShareIssuance findByCertificateNo(String certificateNo) {
         return issuances.findByCertificateNo(certificateNo)
                 .orElseThrow(() -> new NotFoundException("Certificate " + certificateNo + " not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public java.util.List<ShareIssuance> listForOrganization(UUID organizationId) {
+        return issuances.findAllByOrganization(organizationId);
+    }
+
+    /** Looks a certificate up inside one organization; a number from another tenant reads as not found. */
+    @Transactional(readOnly = true)
+    public ShareIssuance findInOrganization(UUID organizationId, String certificateNo) {
+        ShareIssuance i = findByCertificateNo(certificateNo);
+        if (!i.getOrganization().getId().equals(organizationId)) {
+            throw new NotFoundException("Certificate " + certificateNo + " not found");
+        }
+        return i;
     }
 
     /** True if the stored record still hashes to its recorded fingerprint and matches the presented hash. */
