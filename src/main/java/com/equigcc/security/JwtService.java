@@ -23,6 +23,9 @@ public class JwtService {
     public static final String ORG_IDS = "org_ids";
     public static final String AMR = "amr";
     public static final String SHAREHOLDER_ID = "shareholder_id";
+    public static final String TYPE = "typ";
+    public static final String TYPE_ACCESS = "access";
+    public static final String TYPE_MFA_PENDING = "mfa_pending";
 
     private final SecretKey key;
 
@@ -47,10 +50,24 @@ public class JwtService {
             builder.claim(SHAREHOLDER_ID, shareholderId.toString());
         }
         return builder
+                .claim(TYPE, TYPE_ACCESS)
                 .subject(subject)
                 .claim(ROLES, List.copyOf(roles))
                 .claim(ORG_IDS, orgIds.stream().map(UUID::toString).toList())
                 .claim(AMR, mfa ? List.of("pwd", "otp") : List.of("pwd"))
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(ttl)))
+                .signWith(key)
+                .compact();
+    }
+
+    /** Short-lived token proving the password step passed; only /auth/mfa/verify accepts it. */
+    public String issuePending(String subject, UUID orgId, Duration ttl) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .claim(TYPE, TYPE_MFA_PENDING)
+                .claim(ORG_IDS, List.of(orgId.toString()))
+                .subject(subject)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(ttl)))
                 .signWith(key)

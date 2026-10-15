@@ -22,6 +22,11 @@ equigcc:
   security:
     # HS256 signing secret, min 32 bytes. Override via env in every real environment.
     jwt-secret: ${JWT_SECRET:change-me-change-me-change-me-change-me-0123456789}
+    # AES-256 key (base64, 32 bytes) protecting TOTP seeds at rest. The default is for local development only.
+    encryption-key: ${ENCRYPTION_KEY:ZGV2LW9ubHktYWVzMjU2LWtleS0wMTIzNDU2Nzg5YWI=}
+    access-token-ttl: ${ACCESS_TOKEN_TTL:PT1H}
+    max-failed-logins: 5
+    lockout: PT15M
   certificates:
     verification-base-url: ${CERT_VERIFY_URL:https://verify.equigcc.com/c/}
 

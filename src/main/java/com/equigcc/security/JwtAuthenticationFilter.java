@@ -33,6 +33,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             try {
                 Claims claims = jwtService.parse(header.substring(7));
+                if (!JwtService.TYPE_ACCESS.equals(claims.get(JwtService.TYPE, String.class))) {
+                    throw new io.jsonwebtoken.JwtException("Not an access token");
+                }
                 Set<UUID> orgIds = stringList(claims, JwtService.ORG_IDS).stream()
                         .map(UUID::fromString).collect(Collectors.toUnmodifiableSet());
                 boolean mfa = stringList(claims, JwtService.AMR).contains("otp");

@@ -85,7 +85,22 @@ not Hibernate Envers, so it records business events rather than row-level diffs.
 { "sub": "user@firm.ae", "roles": ["FOUNDER"], "org_ids": ["<uuid>"], "amr": ["pwd", "otp"], "shareholder_id": "<uuid, optional>" }
 ```
 
-`JwtService.issue(...)` mints tokens; the login + TOTP enrollment flow is not built yet.
+Access tokens also carry `typ: access`; the short-lived token between password and TOTP steps has `typ: mfa_pending` and is rejected everywhere except `/auth/mfa/verify`. Data endpoints require `amr` to contain `otp`.
+
+## Accounts, login and TOTP
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/v1/auth/signup` | Creates an organization and its first FOUNDER, returns a password-only token and `mfaEnrollmentRequired` |
+| `POST /api/v1/auth/mfa/enroll` | Returns a TOTP seed and `otpauth://` URI (render as QR) |
+| `POST /api/v1/auth/mfa/confirm` | Confirms a code, enables TOTP, returns an MFA-verified token |
+| `POST /api/v1/auth/login` | Password check; `OK`, `MFA_REQUIRED` (5-minute pending token) or `ORG_SELECTION_REQUIRED` |
+| `POST /api/v1/auth/mfa/verify` | Pending token + code, returns the verified token |
+| `GET /api/v1/auth/me` | Current subject, org, role |
+| `POST` / `GET /organizations/{id}/members` | FOUNDER invites (temporary password shown once) and lists members |
+| `POST /organizations/{id}/share-classes`, `/shareholders` | FOUNDER or secretary creates register setup data (audited) |
+
+TOTP is RFC 6238 (SHA-1, 6 digits, 30 s, plus or minus one step) with replay protection; secrets are AES-256-GCM encrypted at rest; passwords use BCrypt cost 12; five failed logins lock the account for 15 minutes; login errors are uniform. The `prod` profile refuses to start with the built-in development `JWT_SECRET` or `ENCRYPTION_KEY`. `scripts/auth-smoke-test.py` runs the whole flow against a live app.
 
 ## Run
 
@@ -96,8 +111,8 @@ mvn test                          # unit + web-slice tests
 ./scripts/smoke-test.sh           # end-to-end against the running app (needs psql)
 ```
 
-Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `CERT_VERIFY_URL`.
+Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (base64, 32 bytes), `ACCESS_TOKEN_TTL`, `CERT_VERIFY_URL`.
 
 ## Not built yet (from the PRD)
 
-PDF certificate rendering (bilingual + QR), succession rules, UBO exports, Redis rate limiting, TOTP enrollment.
+PDF certificate rendering (bilingual + QR), succession rules, UBO exports, Redis rate limiting.
