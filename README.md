@@ -76,6 +76,14 @@ lock on the organization, so concurrent issuances cannot collide or overshoot th
 
 Corporate shareholders can have recorded owners (`PUT /organizations/{id}/shareholders/{holderId}/owners`, percentages of the company's capital and votes; totals over 100% and circular ownership are rejected). `GET /organizations/{id}/ubo?threshold=25` looks through those links from each register holder's fully diluted economic share and weighted voting share, multiplying along each path and summing across paths. A natural person is a beneficial owner at or above the threshold on either measure (default 25%, inclusive; this reading of the UAE rule should be confirmed by counsel). Corporate holders with no recorded owners, or owners that add up to less than 100%, are reported as gaps rather than ignored. `GET /ubo/export?format=csv|pdf` downloads the schedule (CSV is UTF-8 with BOM and neutralises spreadsheet formulas) and each export is audited. The official MoE/MoC filing formats are not reproduced and the output says so. `scripts/ubo-smoke-test.py` runs a two-level holding structure end to end.
 
+## Succession rules
+
+A rule is a pre-agreed conversion: on a trigger event (founder death or incapacity, exit, transfer to an heir, IPO, custom), shares of one class convert to another class at a ratio, optionally for one named holder and optionally into a beneficiary's name, with a mandatory legal reference (e.g. the article of association). `GET .../succession-rules/{id}/preview` shows exactly what would change; `POST .../execute` (founder or secretary, MFA-verified, optionally naming a PASSED board resolution) retires each matching certificate (`CONVERTED`, or `TRANSFERRED` when the holder changes) and issues a new certificate that links back to its predecessor, with the price per share re-spread so the holder's total consideration is unchanged. Fractional shares, target-class authorised-share overruns and double execution are refused, and everything is audited. Applies to ordinary shares only; options, warrants and convertibles are not converted.
+
+## Document vault
+
+`POST .../vault` (multipart) stores AoA, notary receipts, agreements and similar as PDF, PNG, JPEG, DOCX or text up to 10 MB. The type is decided from the file's own bytes, the stored file name always gets the matching extension, a SHA-256 is recorded and re-checked on every download, downloads are `attachment` with `nosniff` and a sandbox CSP, and uploads are audited. There is no delete.
+
 ## Audit trail
 
 Issuances, resolution changes and votes append to `audit_log` in the same transaction as the change.
@@ -120,4 +128,4 @@ Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (ba
 
 ## Not built yet (from the PRD)
 
-succession rules, document vault, Redis rate limiting.
+Redis rate limiting, e-signature integration, official UBO filing formats.

@@ -43,4 +43,9 @@ public class ApiExceptionHandler {
         pd.setTitle("Conflict");
         return pd;
     }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    ProblemDetail tooLarge(org.springframework.web.multipart.MaxUploadSizeExceededException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatus.PAYLOAD_TOO_LARGE, "Files can be at most 10 MB");
+    }
 }

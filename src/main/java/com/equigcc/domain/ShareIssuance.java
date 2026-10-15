@@ -64,6 +64,13 @@ public class ShareIssuance extends BaseEntity {
     @Column(name = "issued_by", nullable = false, length = 128, updatable = false)
     private String issuedBy;
 
+    /** The certificate this one replaced in a succession conversion. */
+    @Column(name = "predecessor_id")
+    private java.util.UUID predecessorId;
+
+    @Column(name = "succession_rule_id")
+    private java.util.UUID successionRuleId;
+
     public boolean countsAsOutstanding() {
         return status == IssuanceStatus.ISSUED && instrumentType == InstrumentType.SHARES;
     }
@@ -92,4 +99,8 @@ public class ShareIssuance extends BaseEntity {
     public void setRecordHash(String recordHash) { this.recordHash = recordHash; }
     public String getIssuedBy() { return issuedBy; }
     public void setIssuedBy(String issuedBy) { this.issuedBy = issuedBy; }
+    public java.util.UUID getPredecessorId() { return predecessorId; }
+    public void setPredecessorId(java.util.UUID predecessorId) { this.predecessorId = predecessorId; }
+    public java.util.UUID getSuccessionRuleId() { return successionRuleId; }
+    public void setSuccessionRuleId(java.util.UUID successionRuleId) { this.successionRuleId = successionRuleId; }
 }
