@@ -36,7 +36,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Set<UUID> orgIds = stringList(claims, JwtService.ORG_IDS).stream()
                         .map(UUID::fromString).collect(Collectors.toUnmodifiableSet());
                 boolean mfa = stringList(claims, JwtService.AMR).contains("otp");
-                var principal = new AuthenticatedUser(claims.getSubject(), orgIds, mfa);
+                String sh = claims.get(JwtService.SHAREHOLDER_ID, String.class);
+                var principal = new AuthenticatedUser(claims.getSubject(), orgIds, mfa, sh == null ? null : UUID.fromString(sh));
                 var authorities = stringList(claims, JwtService.ROLES).stream()
                         .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
                         .toList();

@@ -23,6 +23,7 @@ public class CertificateIssuanceService {
     private final ShareholderRepository shareholders;
     private final ShareIssuanceRepository issuances;
     private final CertificateHasher hasher;
+    private final AuditService audit;
     private final Clock clock;
 
     public CertificateIssuanceService(OrganizationRepository organizations,
@@ -30,12 +31,14 @@ public class CertificateIssuanceService {
                                       ShareholderRepository shareholders,
                                       ShareIssuanceRepository issuances,
                                       CertificateHasher hasher,
+                                      AuditService audit,
                                       Clock clock) {
         this.organizations = organizations;
         this.shareClasses = shareClasses;
         this.shareholders = shareholders;
         this.issuances = issuances;
         this.hasher = hasher;
+        this.audit = audit;
         this.clock = clock;
     }
 
@@ -89,7 +92,11 @@ public class CertificateIssuanceService {
         issuance.setCertificateNo(org.nextCertificateNumber());
         issuance.setRecordHash(hasher.hash(issuance));
 
-        return issuances.save(issuance);
+        ShareIssuance saved = issuances.save(issuance);
+        audit.record(org.getId(), "ShareIssuance", saved.getId(), com.equigcc.domain.AuditAction.CREATE,
+                "certificate " + saved.getCertificateNo() + ": " + saved.getQuantity() + " " + shareClass.getName()
+                        + " to " + holder.getFullNameEn(), cmd.issuedBy());
+        return saved;
     }
 
     @Transactional(readOnly = true)

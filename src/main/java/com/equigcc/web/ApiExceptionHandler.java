@@ -1,5 +1,6 @@
 package com.equigcc.web;
 
+import com.equigcc.service.BusinessRuleException;
 import com.equigcc.service.IssuanceRejectedException;
 import com.equigcc.service.NotFoundException;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,13 @@ public class ApiExceptionHandler {
     ProblemDetail rejected(IssuanceRejectedException e) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
         pd.setTitle("Issuance rejected");
+        return pd;
+    }
+
+    @ExceptionHandler(BusinessRuleException.class)
+    ProblemDetail ruleViolated(BusinessRuleException e) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.UNPROCESSABLE_ENTITY, e.getMessage());
+        pd.setTitle("Rule violated");
         return pd;
     }
 }
