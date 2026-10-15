@@ -27,7 +27,7 @@ b = lambda d: base64.urlsafe_b64encode(d).rstrip(b'=').decode()
 now = int(time.time())
 h = b(json.dumps({"alg": "HS256"}).encode())
 p = b(json.dumps({"sub": "founder@alnoor.ae", "roles": ["FOUNDER"], "org_ids": [os.environ["ORG"]],
-                  "amr": ["pwd", "otp"], "iat": now, "exp": now + 600}).encode())
+                  "amr": ["pwd", "otp"], "typ": "access", "iat": now, "exp": now + 600}).encode())
 s = b(hmac.new(os.environ["SECRET"].encode(), f"{h}.{p}".encode(), hashlib.sha256).digest())
 print(f"{h}.{p}.{s}")
 PY

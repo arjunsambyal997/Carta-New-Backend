@@ -16,7 +16,7 @@ import base64, hashlib, hmac, json, os, time
 b = lambda d: base64.urlsafe_b64encode(d).rstrip(b'=').decode()
 now = int(time.time())
 claims = {"sub": os.environ["ROLE"].lower() + "@alnoor.ae", "roles": [os.environ["ROLE"]],
-          "org_ids": [os.environ["ORG"]], "amr": ["pwd", "otp"], "iat": now, "exp": now + 600}
+          "org_ids": [os.environ["ORG"]], "amr": ["pwd", "otp"], "typ": "access", "iat": now, "exp": now + 600}
 if os.environ["SH"]:
     claims["shareholder_id"] = os.environ["SH"]
 h = b(json.dumps({"alg": "HS256"}).encode()); p = b(json.dumps(claims).encode())
@@ -50,9 +50,9 @@ print('chainIntact =', d['chainIntact'])
 for e in reversed(d['entries']): print(' ', e['id'], e['entityName'], e['action'], '-', e['detail'][:70])"
 
 echo "== UPDATE audit_log (expect trigger error)"
-psql -d "$DB" -c "update audit_log set detail='x' where id=1" 2>&1 | grep -m1 'append-only' || true
+psql -d "$DB" -c "update audit_log set detail='x' where id=(select min(id) from audit_log where organization_id='$ORG')" 2>&1 | grep -m1 'append-only' || true
 echo "== Tamper with the trigger disabled, then verify the chain (expect chainIntact=false)"
-psql -q -d "$DB" -c "alter table audit_log disable trigger audit_log_no_update_delete" -c "update audit_log set detail='tampered' where id=1" -c "alter table audit_log enable trigger audit_log_no_update_delete"
+psql -q -d "$DB" -c "alter table audit_log disable trigger audit_log_no_update_delete" -c "update audit_log set detail='tampered' where id=(select min(id) from audit_log where organization_id='$ORG')" -c "alter table audit_log enable trigger audit_log_no_update_delete"
 call "$FOUNDER" GET "/audit" | python3 -c "
 import json,sys
 t=sys.stdin.read(); d=json.loads(t[:t.rindex(' [HTTP')]); print('chainIntact =', d['chainIntact'], 'firstBrokenEntry =', d['firstBrokenEntry'])"
