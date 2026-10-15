@@ -21,6 +21,7 @@ and share certificate issuance for UAE (Mainland, ADGM, DIFC) and KSA entities.
 |---|---|---|
 | `POST` | `/api/v1/organizations/{orgId}/certificates` | `FOUNDER` or `CORPORATE_SECRETARY`, member of org, MFA session |
 | `GET` | `/api/v1/organizations/{orgId}/cap-table` | founder, secretary, board member, legal auditor of that org |
+| `GET` | `/api/v1/organizations/{orgId}/waterfall?exitValue=…` | same roles as the cap table |
 | `GET` | `/api/v1/certificates/{certificateNo}/verify?h={hash}` | public (QR target, no shareholder PII) |
 
 Swagger UI: `/swagger-ui.html`.
@@ -46,6 +47,15 @@ lock on the organization, so concurrent issuances cannot collide or overshoot th
 * **Voting power** = issued shares × class `voting_multiplier`. Options and treasury carry no votes.
 * Percentages are 0–100 with 4 decimals; treasury shares are reported separately.
 
+## Exit waterfall rules
+
+* Classes with a `liquidation_multiple` are paid `multiple x invested capital` (quantity x issue price on the
+  register), most senior `seniority_rank` first; equal ranks share pro rata when proceeds run short.
+* The remainder is split by shares across common, participating preferred, and non-participating preferred
+  that converts. Non-participating preferred converts when its as-converted payout beats its preference.
+* Only issued shares count; options, warrants, convertibles and treasury are ignored. Amounts are rounded to
+  2 decimals, so totals can differ from the exit value by a cent or two.
+
 ## JWT claims
 
 ```json
@@ -68,4 +78,4 @@ Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `CERT_VERIFY_URL`.
 ## Not built yet (from the PRD)
 
 PDF certificate rendering (bilingual + QR), Envers audit trail / `AuditLog`, `BoardResolution` and
-`VoteRecord`, exit waterfall, succession rules, UBO exports, Redis rate limiting, TOTP enrollment.
+`VoteRecord`, succession rules, UBO exports, Redis rate limiting, TOTP enrollment.

@@ -5,6 +5,8 @@ import com.equigcc.service.CapTable;
 import com.equigcc.service.CapTableService;
 import com.equigcc.service.CertificateIssuanceService;
 import com.equigcc.service.IssueCertificateCommand;
+import com.equigcc.service.WaterfallResult;
+import com.equigcc.service.WaterfallService;
 import com.equigcc.web.dto.CertificateResponse;
 import com.equigcc.web.dto.CertificateVerification;
 import com.equigcc.web.dto.IssueCertificateRequest;
@@ -24,6 +26,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 @RestController
@@ -33,13 +36,16 @@ public class ShareCertificateController {
 
     private final CertificateIssuanceService issuanceService;
     private final CapTableService capTableService;
+    private final WaterfallService waterfallService;
     private final String verificationBaseUrl;
 
     public ShareCertificateController(CertificateIssuanceService issuanceService,
                                       CapTableService capTableService,
+                                      WaterfallService waterfallService,
                                       @Value("${equigcc.certificates.verification-base-url}") String verificationBaseUrl) {
         this.issuanceService = issuanceService;
         this.capTableService = capTableService;
+        this.waterfallService = waterfallService;
         this.verificationBaseUrl = verificationBaseUrl;
     }
 
@@ -76,6 +82,14 @@ public class ShareCertificateController {
             + "and @orgAccess.canAccess(authentication, #orgId)")
     public CapTable capTable(@PathVariable UUID orgId) {
         return capTableService.calculate(orgId);
+    }
+
+    @Operation(summary = "Exit waterfall: proceeds per share class and shareholder for a given exit value")
+    @GetMapping("/organizations/{orgId}/waterfall")
+    @PreAuthorize("hasAnyRole('FOUNDER','CORPORATE_SECRETARY','BOARD_MEMBER','LEGAL_AUDITOR') "
+            + "and @orgAccess.canAccess(authentication, #orgId)")
+    public WaterfallResult waterfall(@PathVariable UUID orgId, @RequestParam BigDecimal exitValue) {
+        return waterfallService.calculate(orgId, exitValue);
     }
 
     @Operation(summary = "Public QR verification of a certificate")

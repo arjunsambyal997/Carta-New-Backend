@@ -12,6 +12,7 @@ import com.equigcc.security.SecurityConfig;
 import com.equigcc.service.CapTableService;
 import com.equigcc.service.CertificateIssuanceService;
 import com.equigcc.service.IssuanceRejectedException;
+import com.equigcc.service.WaterfallService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -47,6 +48,7 @@ class ShareCertificateControllerTest {
     @Autowired JwtService jwt;
     @MockBean CertificateIssuanceService issuanceService;
     @MockBean CapTableService capTableService;
+    @MockBean WaterfallService waterfallService;
 
     private final String body = """
             {"shareholderId":"%s","shareClassId":"%s","quantity":1000,"pricePerShare":10.00}
