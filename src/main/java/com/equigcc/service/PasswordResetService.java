@@ -32,13 +32,14 @@ public class PasswordResetService {
     private final PasswordResetTokenRepository tokens;
     private final PasswordEncoder encoder;
     private final PasswordResetMailer mailer;
+    private final SessionService sessions;
     private final Clock clock;
     private final Duration ttl;
     private final int maxPerHour;
     private final String baseUrl;
 
     public PasswordResetService(AppUserRepository users, PasswordResetTokenRepository tokens, PasswordEncoder encoder,
-                                PasswordResetMailer mailer, Clock clock,
+                                PasswordResetMailer mailer, SessionService sessions, Clock clock,
                                 @Value("${equigcc.password-reset.token-ttl}") Duration ttl,
                                 @Value("${equigcc.password-reset.max-requests-per-hour}") int maxPerHour,
                                 @Value("${equigcc.public-base-url}") String baseUrl) {
@@ -46,6 +47,7 @@ public class PasswordResetService {
         this.tokens = tokens;
         this.encoder = encoder;
         this.mailer = mailer;
+        this.sessions = sessions;
         this.clock = clock;
         this.ttl = ttl;
         this.maxPerHour = maxPerHour;
@@ -89,6 +91,7 @@ public class PasswordResetService {
         user.setFailedAttempts(0);
         user.setLockedUntil(null);
         t.setUsedAt(clock.instant());
+        sessions.revokeAll(user.getId(), null); // a reset ends every signed-in session
         for (var other : tokens.findUnused(user.getId())) {
             other.setUsedAt(clock.instant());
         }

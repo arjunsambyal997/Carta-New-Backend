@@ -23,6 +23,7 @@ public class JwtService {
     public static final String ORG_IDS = "org_ids";
     public static final String AMR = "amr";
     public static final String SHAREHOLDER_ID = "shareholder_id";
+    public static final String SESSION_ID = "sid";
     public static final String TYPE = "typ";
     public static final String TYPE_ACCESS = "access";
     public static final String TYPE_MFA_PENDING = "mfa_pending";
@@ -44,8 +45,17 @@ public class JwtService {
 
     public String issue(String subject, Collection<String> roles, Collection<UUID> orgIds,
                         boolean mfa, UUID shareholderId, Duration ttl) {
+        return issue(subject, roles, orgIds, mfa, shareholderId, null, ttl);
+    }
+
+    /** {@code sessionId} ties the token to a server-side session so sign-out can end it; null for password-only enrollment tokens. */
+    public String issue(String subject, Collection<String> roles, Collection<UUID> orgIds,
+                        boolean mfa, UUID shareholderId, UUID sessionId, Duration ttl) {
         Instant now = Instant.now();
         var builder = Jwts.builder();
+        if (sessionId != null) {
+            builder.claim(SESSION_ID, sessionId.toString());
+        }
         if (shareholderId != null) {
             builder.claim(SHAREHOLDER_ID, shareholderId.toString());
         }

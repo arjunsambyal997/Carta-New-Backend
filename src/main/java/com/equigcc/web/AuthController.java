@@ -45,6 +45,19 @@ public class AuthController {
         return auth.verifyMfa(r.mfaToken(), r.code());
     }
 
+    /** Trades a refresh token for a new access token and a new refresh token (the old one stops working). */
+    @PostMapping("/refresh")
+    public AuthResult refresh(@Valid @RequestBody AuthDtos.RefreshRequest r) {
+        return auth.refresh(r.refreshToken());
+    }
+
+    /** Ends this session on the server; the access token stops working immediately. */
+    @PostMapping("/logout")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void logout(Authentication a) {
+        auth.logout(((AuthenticatedUser) a.getPrincipal()).sessionId());
+    }
+
     /** Starts TOTP enrollment for the signed-in account; returns the seed and an otpauth:// URI for a QR code. */
     @PostMapping("/mfa/enroll")
     public AuthService.Enrollment enroll(Authentication a) {
@@ -73,7 +86,7 @@ public class AuthController {
     @PostMapping("/password/change")
     @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
     public void change(@Valid @RequestBody AuthDtos.ChangePasswordRequest r, Authentication a) {
-        auth.changePassword(a.getName(), r.currentPassword(), r.newPassword());
+        auth.changePassword(a.getName(), r.currentPassword(), r.newPassword(), ((AuthenticatedUser) a.getPrincipal()).sessionId());
     }
 
     @GetMapping("/me")

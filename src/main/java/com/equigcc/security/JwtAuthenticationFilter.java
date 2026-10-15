@@ -21,9 +21,16 @@ import java.util.stream.Collectors;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final java.util.function.Predicate<UUID> sessionActive;
 
     public JwtAuthenticationFilter(JwtService jwtService) {
+        this(jwtService, id -> true);
+    }
+
+    /** {@code sessionActive} says whether a session id is still signed in; signing out makes it false. */
+    public JwtAuthenticationFilter(JwtService jwtService, java.util.function.Predicate<UUID> sessionActive) {
         this.jwtService = jwtService;
+        this.sessionActive = sessionActive;
     }
 
     @Override
@@ -40,7 +47,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .map(UUID::fromString).collect(Collectors.toUnmodifiableSet());
                 boolean mfa = stringList(claims, JwtService.AMR).contains("otp");
                 String sh = claims.get(JwtService.SHAREHOLDER_ID, String.class);
-                var principal = new AuthenticatedUser(claims.getSubject(), orgIds, mfa, sh == null ? null : UUID.fromString(sh));
+                String sid = claims.get(JwtService.SESSION_ID, String.class);
+                UUID sessionId = sid == null ? null : UUID.fromString(sid);
+                if (sessionId != null && !sessionActive.test(sessionId)) {
+                    throw new io.jsonwebtoken.JwtException("Session ended");
+                }
+                var principal = new AuthenticatedUser(claims.getSubject(), orgIds, mfa, sh == null ? null : UUID.fromString(sh), sessionId);
                 var authorities = stringList(claims, JwtService.ROLES).stream()
                         .map(r -> new SimpleGrantedAuthority("ROLE_" + r))
                         .toList();

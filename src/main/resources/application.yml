@@ -28,12 +28,18 @@ equigcc:
     jwt-secret: ${JWT_SECRET:change-me-change-me-change-me-change-me-0123456789}
     # AES-256 key (base64, 32 bytes) protecting TOTP seeds at rest. The default is for local development only.
     encryption-key: ${ENCRYPTION_KEY:ZGV2LW9ubHktYWVzMjU2LWtleS0wMTIzNDU2Nzg5YWI=}
-    access-token-ttl: ${ACCESS_TOKEN_TTL:PT1H}
+    access-token-ttl: ${ACCESS_TOKEN_TTL:PT15M}
+    refresh-token-ttl: ${REFRESH_TOKEN_TTL:P14D}
     max-failed-logins: 5
     lockout: PT15M
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:3000}
   mail:
     from: ${MAIL_FROM:no-reply@equigcc.local}
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:30}
+    api-per-minute: ${RATE_LIMIT_API_PER_MINUTE:600}
+    trust-forwarded: ${RATE_LIMIT_TRUST_FORWARDED:false}
   notices:
     enabled: ${NOTICES_ENABLED:true}
   password-reset:
