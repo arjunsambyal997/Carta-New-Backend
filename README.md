@@ -138,8 +138,10 @@ This starts PostgreSQL 16, the backend on http://localhost:8080 and the UI on ht
 ### Option B: run the pieces yourself
 
 ```bash
-# 1. Database. Use the container, or your own Postgres (see the env vars below)
-docker run -d -p 5432:5432 -e POSTGRES_USER=equigcc -e POSTGRES_PASSWORD=equigcc -e POSTGRES_DB=equigcc postgres:16
+# 1. Database. Use the container (host port 5433 here, in case a local Postgres already holds 5432),
+#    or your own Postgres (see below)
+docker run -d -p 5433:5432 -e POSTGRES_USER=equigcc -e POSTGRES_PASSWORD=equigcc -e POSTGRES_DB=equigcc postgres:16
+export DB_URL=jdbc:postgresql://localhost:5433/equigcc     # PowerShell: $env:DB_URL="jdbc:postgresql://localhost:5433/equigcc"
 
 # 2. Backend (terminal 1), listens on :8080
 mvn spring-boot:run
@@ -152,10 +154,16 @@ BACKEND_URL=http://localhost:8080 npm run dev
 Using your own PostgreSQL instead of the container, for example database `postgres`, user `postgres`:
 
 ```bash
+# macOS / Linux / Git Bash
 DB_URL=jdbc:postgresql://localhost:5432/postgres DB_USER=postgres DB_PASSWORD=<your password> mvn spring-boot:run
 ```
 
-The development defaults for `JWT_SECRET` and `ENCRYPTION_KEY` are built in and fine locally. The `prod` profile refuses to start with them.
+```powershell
+# Windows PowerShell (the VAR=value prefix form does not work there)
+$env:DB_URL="jdbc:postgresql://localhost:5432/postgres"; $env:DB_USER="postgres"; $env:DB_PASSWORD="<your password>"; mvn spring-boot:run
+```
+
+Environment variables set with `$env:` last for that PowerShell window only. The development defaults for `JWT_SECRET` and `ENCRYPTION_KEY` are built in and fine locally. The `prod` profile refuses to start with them.
 
 ### Walk through the product
 
