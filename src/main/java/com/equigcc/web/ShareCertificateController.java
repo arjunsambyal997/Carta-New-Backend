@@ -39,17 +39,20 @@ public class ShareCertificateController {
     private final WaterfallService waterfallService;
     private final String verificationBaseUrl;
     private final com.equigcc.service.CertificatePdfService pdfService;
+    private final com.equigcc.service.NoticeService notices;
 
     public ShareCertificateController(com.equigcc.service.CertificatePdfService pdfService,
                                       CertificateIssuanceService issuanceService,
                                       CapTableService capTableService,
                                       WaterfallService waterfallService,
+                                      com.equigcc.service.NoticeService notices,
                                       @Value("${equigcc.certificates.verification-base-url}") String verificationBaseUrl) {
         this.issuanceService = issuanceService;
         this.capTableService = capTableService;
         this.waterfallService = waterfallService;
         this.verificationBaseUrl = verificationBaseUrl;
         this.pdfService = pdfService;
+        this.notices = notices;
     }
 
     @Operation(summary = "Issue a new share certificate",
@@ -72,6 +75,7 @@ public class ShareCertificateController {
                 req.dateIssued(),
                 auth.getName()));
 
+        notices.certificateIssued(orgId, issued.getCertificateNo());
         var location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{certificateNo}")
                 .buildAndExpand(issued.getCertificateNo())

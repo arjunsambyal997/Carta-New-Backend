@@ -43,6 +43,7 @@ class ResolutionControllerTest {
     @Autowired MockMvc mvc;
     @Autowired JwtService jwt;
     @MockBean ResolutionService service;
+    @MockBean com.equigcc.service.NoticeService notices;
 
     private static final String URL = "/api/v1/organizations/{orgId}/resolutions/{id}/votes";
 

@@ -17,6 +17,10 @@ public interface BoardResolutionRepository extends JpaRepository<BoardResolution
 
     Optional<BoardResolution> findByIdAndOrganizationId(UUID id, UUID organizationId);
 
+    /** Open resolutions whose deadline falls inside the window and that have not had their reminder yet. */
+    @Query("select r from BoardResolution r join fetch r.organization where r.status = com.equigcc.domain.ResolutionStatus.ACTIVE and r.reminderSentAt is null and r.votingDeadline > :now and r.votingDeadline <= :until")
+    List<BoardResolution> findDueForReminder(@Param("now") java.time.Instant now, @Param("until") java.time.Instant until);
+
     /** Serializes votes and status changes on one resolution. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select r from BoardResolution r where r.id = :id and r.organization.id = :orgId")
