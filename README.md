@@ -181,6 +181,18 @@ Environment variables set with `$env:` last for that PowerShell window only. The
 10. Password reset: sign out, choose "Forgot your password?", and enter your email. With no mail server set, the link is written to the backend log on a line starting `MAIL NOT CONFIGURED`. Open it, set a new password (12 characters or more), and sign in with the new password plus a code from your authenticator app. `/password` changes it while signed in.
 11. The EN / العربية toggle in the top bar flips the language and the layout direction.
 
+### Demo data
+
+`scripts/seed-demo.mjs` (Node 20+, no install step) fills an organization you already created with realistic data: five share classes (voting, 10-vote founder, Series A preferred with a 1.5x preference, non-voting, treasury), 14 shareholders with Arabic names, issuances, holding companies with multi-level ownership for the UBO report (two beneficial owners, one three levels deep, plus one deliberate gap), five board resolutions (passed, rejected, open with partial votes, draft), three draft succession rules and six vault documents.
+
+It asks for your email, password (hidden) and the current authenticator code; nothing is saved. In PowerShell, from the backend folder, with the backend on port 8081 as in the Docker setup (use 8080 for `mvn spring-boot:run`):
+
+```powershell
+$env:API_URL="http://localhost:8081"; node scripts/seed-demo.mjs
+```
+
+To skip the prompts: `$env:SEED_EMAIL`, `$env:SEED_PASSWORD` and `$env:SEED_TOTP`. Run it as the FOUNDER of the organization. It can be run again: anything that already exists is skipped. Board votes need a corporate secretary with two-factor on, so the script adds one throwaway secretary account (`demo-secretary-<random>@example.com`) whose password and two-factor secret are never shown or stored. Succession rules are left as drafts so you can preview and execute them yourself.
+
 ### Tests
 
 ```bash
