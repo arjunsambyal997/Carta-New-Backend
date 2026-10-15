@@ -2,3 +2,5 @@ target/
 .idea/
 *.iml
 .vscode/
+__pycache__/
+*.pyc
