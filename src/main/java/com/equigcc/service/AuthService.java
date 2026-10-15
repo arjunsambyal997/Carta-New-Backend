@@ -78,6 +78,9 @@ public class AuthService {
         if (users.findByEmail(cmd.email()).isPresent()) {
             throw new BusinessRuleException("An account with this email already exists");
         }
+        if (organizations.existsByCertificatePrefixIgnoreCase(cmd.certificatePrefix())) {
+            throw new BusinessRuleException("That certificate prefix is already used by another organization");
+        }
         var org = new Organization();
         org.setLegalNameEn(cmd.legalNameEn());
         org.setLegalNameAr(cmd.legalNameAr());

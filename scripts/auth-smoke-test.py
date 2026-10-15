@@ -32,7 +32,7 @@ def check(label, cond, extra=""):
 email, pw = f"founder{SUFFIX}@alnoor.ae", "correct horse battery"
 s, r = call("POST", "/auth/signup", {"email": email, "password": pw, "displayName": "Founder",
     "organization": {"legalNameEn": "Smoke Co", "jurisdiction": "MAINLAND_UAE", "commercialLicenseNo": "CN-" + SUFFIX,
-                     "baseCurrency": "AED", "certificatePrefix": "SMK"}})
+                     "baseCurrency": "AED", "certificatePrefix": "S" + SUFFIX}})
 check("signup", s == 200 and r["status"] == "OK", (s, r))
 tok = r["accessToken"]; org = r["organizationId"]
 check("enrollment flagged", r["mfaEnrollmentRequired"])

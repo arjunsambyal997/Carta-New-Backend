@@ -12,6 +12,8 @@ import java.util.UUID;
 
 public interface OrganizationRepository extends JpaRepository<Organization, UUID> {
 
+    boolean existsByCertificatePrefixIgnoreCase(String certificatePrefix);
+
     /** Row lock so certificate numbers and authorized-share checks are serialized per organization. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Organization o where o.id = :id")

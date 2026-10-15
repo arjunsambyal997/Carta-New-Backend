@@ -72,6 +72,10 @@ lock on the organization, so concurrent issuances cannot collide or overshoot th
   entity, since thresholds differ by jurisdiction and resolution type.
 * A corporate secretary can record a vote for a shareholder by passing `shareholderId`.
 
+## Beneficial ownership (UBO)
+
+Corporate shareholders can have recorded owners (`PUT /organizations/{id}/shareholders/{holderId}/owners`, percentages of the company's capital and votes; totals over 100% and circular ownership are rejected). `GET /organizations/{id}/ubo?threshold=25` looks through those links from each register holder's fully diluted economic share and weighted voting share, multiplying along each path and summing across paths. A natural person is a beneficial owner at or above the threshold on either measure (default 25%, inclusive; this reading of the UAE rule should be confirmed by counsel). Corporate holders with no recorded owners, or owners that add up to less than 100%, are reported as gaps rather than ignored. `GET /ubo/export?format=csv|pdf` downloads the schedule (CSV is UTF-8 with BOM and neutralises spreadsheet formulas) and each export is audited. The official MoE/MoC filing formats are not reproduced and the output says so. `scripts/ubo-smoke-test.py` runs a two-level holding structure end to end.
+
 ## Audit trail
 
 Issuances, resolution changes and votes append to `audit_log` in the same transaction as the change.
@@ -98,6 +102,7 @@ Access tokens also carry `typ: access`; the short-lived token between password a
 | `POST /api/v1/auth/mfa/verify` | Pending token + code, returns the verified token |
 | `GET /api/v1/auth/me` | Current subject, org, role |
 | `POST` / `GET /organizations/{id}/members` | FOUNDER invites (temporary password shown once) and lists members |
+| `GET /organizations/{id}/certificates`, `/certificates/{no}/pdf` | List certificates and download a bilingual PDF with a verification QR (shareholders can download only their own) |
 | `POST /organizations/{id}/share-classes`, `/shareholders` | FOUNDER or secretary creates register setup data (audited) |
 
 TOTP is RFC 6238 (SHA-1, 6 digits, 30 s, plus or minus one step) with replay protection; secrets are AES-256-GCM encrypted at rest; passwords use BCrypt cost 12; five failed logins lock the account for 15 minutes; login errors are uniform. The `prod` profile refuses to start with the built-in development `JWT_SECRET` or `ENCRYPTION_KEY`. `scripts/auth-smoke-test.py` runs the whole flow against a live app.
@@ -115,4 +120,4 @@ Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (ba
 
 ## Not built yet (from the PRD)
 
-PDF certificate rendering (bilingual + QR), succession rules, UBO exports, Redis rate limiting.
+succession rules, document vault, Redis rate limiting.

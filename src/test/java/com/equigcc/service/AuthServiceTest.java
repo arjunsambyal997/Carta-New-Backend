@@ -39,13 +39,14 @@ class AuthServiceTest {
     private final BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(4);
     private final JwtService jwt = new JwtService(StartupSecretsCheck.DEV_JWT_SECRET);
     private final SecretCipher cipher = new SecretCipher(StartupSecretsCheck.DEV_ENCRYPTION_KEY);
+    private final OrganizationRepository organizations = mock(OrganizationRepository.class);
     private AuthService service;
     private AppUser user;
     private final UUID orgId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        service = new AuthService(users, memberships, mock(OrganizationRepository.class), mock(ShareholderRepository.class),
+        service = new AuthService(users, memberships, organizations, mock(ShareholderRepository.class),
                 encoder, jwt, cipher, Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofHours(1), 5, Duration.ofMinutes(15));
         user = new AppUser();
         user.setId(UUID.randomUUID());
@@ -55,6 +56,15 @@ class AuthServiceTest {
         when(users.findByEmail("fatima@alnoor.ae")).thenReturn(Optional.of(user));
         when(memberships.findByUser(user.getId())).thenReturn(List.of(membership(orgId, Role.FOUNDER)));
         when(memberships.findByUserIdAndOrganizationId(user.getId(), orgId)).thenReturn(Optional.of(membership(orgId, Role.FOUNDER)));
+    }
+
+    @Test
+    void signupRejectsACertificatePrefixAnotherOrganizationUses() {
+        when(users.findByEmail("new@x.ae")).thenReturn(Optional.empty());
+        when(organizations.existsByCertificatePrefixIgnoreCase("acme")).thenReturn(true);
+        var cmd = new AuthService.SignupCommand("new@x.ae", PASSWORD, "New", "Acme LLC", null,
+                com.equigcc.domain.Jurisdiction.MAINLAND_UAE, "CN-1", com.equigcc.domain.Currency.AED, "acme");
+        assertThatThrownBy(() -> service.signup(cmd)).isInstanceOf(BusinessRuleException.class).hasMessageContaining("prefix");
     }
 
     @Test
