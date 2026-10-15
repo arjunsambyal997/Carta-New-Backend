@@ -34,6 +34,7 @@ class AuthControllerTest {
     @Autowired MockMvc mvc;
     @Autowired JwtService jwt;
     @MockBean AuthService auth;
+    @MockBean com.equigcc.service.PasswordResetService passwordReset;
 
     @Test
     void loginIsPublicAndReturnsTheServiceResult() throws Exception {
@@ -78,5 +79,28 @@ class AuthControllerTest {
     @Test
     void anonymousCannotReachEnrollment() throws Exception {
         mvc.perform(post("/api/v1/auth/mfa/enroll")).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void forgotAndResetNeedNoSignInAndForgotAlwaysAccepts() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/auth/password/forgot")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"email\":\"nobody@x.ae\"}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isAccepted());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/auth/password/reset")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"abc\",\"newPassword\":\"a long enough password\"}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isNoContent());
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/auth/password/reset")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"token\":\"abc\",\"newPassword\":\"short\"}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isBadRequest());
+    }
+
+    @Test
+    void changePasswordRequiresASession() throws Exception {
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post("/api/v1/auth/password/change")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON)
+                        .content("{\"currentPassword\":\"x\",\"newPassword\":\"a long enough password\"}"))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().is4xxClientError());
     }
 }

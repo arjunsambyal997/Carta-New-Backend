@@ -20,8 +20,11 @@ public class AuthController {
 
     private final AuthService auth;
 
-    public AuthController(AuthService auth) {
+    private final com.equigcc.service.PasswordResetService reset;
+
+    public AuthController(AuthService auth, com.equigcc.service.PasswordResetService reset) {
         this.auth = auth;
+        this.reset = reset;
     }
 
     /** Creates an organization and its first FOUNDER account, then signs in. */
@@ -52,6 +55,25 @@ public class AuthController {
     public AuthResult confirm(@Valid @RequestBody AuthDtos.CodeRequest r, Authentication a) {
         var me = (AuthenticatedUser) a.getPrincipal();
         return auth.confirmEnrollment(a.getName(), me.organizationIds().iterator().next(), r.code());
+    }
+
+    /** Always answers 202, whether or not the address has an account. */
+    @PostMapping("/password/forgot")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.ACCEPTED)
+    public void forgot(@Valid @RequestBody AuthDtos.ForgotPasswordRequest r) {
+        reset.request(r.email());
+    }
+
+    @PostMapping("/password/reset")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void reset(@Valid @RequestBody AuthDtos.ResetPasswordRequest r) {
+        reset.reset(r.token(), r.newPassword());
+    }
+
+    @PostMapping("/password/change")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void change(@Valid @RequestBody AuthDtos.ChangePasswordRequest r, Authentication a) {
+        auth.changePassword(a.getName(), r.currentPassword(), r.newPassword());
     }
 
     @GetMapping("/me")

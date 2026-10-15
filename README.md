@@ -108,6 +108,9 @@ Access tokens also carry `typ: access`; the short-lived token between password a
 | `POST /api/v1/auth/mfa/confirm` | Confirms a code, enables TOTP, returns an MFA-verified token |
 | `POST /api/v1/auth/login` | Password check; `OK`, `MFA_REQUIRED` (5-minute pending token) or `ORG_SELECTION_REQUIRED` |
 | `POST /api/v1/auth/mfa/verify` | Pending token + code, returns the verified token |
+| `POST /api/v1/auth/password/forgot` | Emails a reset link; always answers 202 so it cannot reveal which addresses have accounts; at most 3 per hour per account |
+| `POST /api/v1/auth/password/reset` | Token plus new password; the link works once, expires in 30 minutes, only the newest link is valid, a lockout is cleared and 2FA stays on |
+| `POST /api/v1/auth/password/change` | Signed-in user changes their password with the current one |
 | `GET /api/v1/auth/me` | Current subject, org, role |
 | `POST` / `GET /organizations/{id}/members` | FOUNDER invites (temporary password shown once) and lists members |
 | `GET /organizations/{id}/certificates`, `/certificates/{no}/pdf` | List certificates and download a bilingual PDF with a verification QR (shareholders can download only their own) |
@@ -123,6 +126,8 @@ JWT_SECRET=<32+ random bytes> mvn spring-boot:run
 mvn test                          # unit + web-slice tests
 ./scripts/smoke-test.sh           # end-to-end against the running app (needs psql)
 ```
+
+Password reset email goes out through SMTP when `spring.mail.host` (env `SPRING_MAIL_HOST`, plus `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`) is set, from `MAIL_FROM`, with links built from `PUBLIC_BASE_URL`. Without a host the link is written to the log (development only) and the `prod` profile refuses to start. Existing access tokens stay valid until they expire (one hour) after a reset. `scripts/password-reset-smoke-test.py` runs the flow.
 
 Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (base64, 32 bytes), `ACCESS_TOKEN_TTL`, `CERT_VERIFY_URL`.
 
