@@ -133,7 +133,7 @@ cd Carta-New-Backend
 docker compose up --build
 ```
 
-This starts PostgreSQL 16, the backend on http://localhost:8080 and the UI on http://localhost:3000. Flyway creates the schema on first start. Data is kept in the `pgdata` volume; `docker compose down -v` wipes it. Reset links are printed in the backend logs: `docker compose logs -f backend`.
+This starts PostgreSQL 16, the backend on http://localhost:8081 and the UI on http://localhost:3000. Flyway creates the schema on first start. Data is kept in the `pgdata` volume; `docker compose down -v` wipes it. Reset links are printed in the backend logs: `docker compose logs -f backend`.
 
 ### Option B: run the pieces yourself
 
@@ -143,12 +143,14 @@ This starts PostgreSQL 16, the backend on http://localhost:8080 and the UI on ht
 docker run -d -p 5433:5432 -e POSTGRES_USER=equigcc -e POSTGRES_PASSWORD=equigcc -e POSTGRES_DB=equigcc postgres:16
 export DB_URL=jdbc:postgresql://localhost:5433/equigcc     # PowerShell: $env:DB_URL="jdbc:postgresql://localhost:5433/equigcc"
 
-# 2. Backend (terminal 1), listens on :8080
+# 2. Backend (terminal 1), listens on :8080. If that port is taken, set SERVER_PORT (any free port, e.g. 8081):
+#    bash: SERVER_PORT=8081 mvn spring-boot:run     PowerShell: $env:SERVER_PORT="8081"; mvn spring-boot:run
 mvn spring-boot:run
 
 # 3. Frontend (terminal 2), listens on :3000
 cd ../Carta-New-Frontend && npm install
-BACKEND_URL=http://localhost:8080 npm run dev
+BACKEND_URL=http://localhost:8080 npm run dev     # PowerShell: $env:BACKEND_URL="http://localhost:8080"; npm run dev
+#   (use the same port you gave the backend, e.g. http://localhost:8081)
 ```
 
 Using your own PostgreSQL instead of the container, for example database `postgres`, user `postgres`:
