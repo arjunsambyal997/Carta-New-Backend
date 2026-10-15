@@ -1,0 +1,41 @@
+# Local full stack: docker compose up --build
+# Expects the frontend repo checked out next to this one (../Carta-New-Frontend).
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: equigcc
+      POSTGRES_PASSWORD: equigcc
+      POSTGRES_DB: equigcc
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U equigcc"]
+      interval: 3s
+      retries: 20
+
+  backend:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/equigcc
+      DB_USER: equigcc
+      DB_PASSWORD: equigcc
+      PUBLIC_BASE_URL: http://localhost:3000
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ../Carta-New-Frontend
+      args:
+        BACKEND_URL: http://backend:8080
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
