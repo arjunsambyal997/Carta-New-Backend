@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -52,8 +53,37 @@ public class CapTableService {
         return compute(organizationId, issuances.findActiveByOrganization(organizationId));
     }
 
+    /**
+     * The cap table as it stood at the end of a given day, rebuilt from the certificate history: certificates issued
+     * by then, minus those already replaced. Dates are the certificates' own dates, not when they were typed in.
+     */
+    @Transactional(readOnly = true)
+    public CapTable calculateAsOf(UUID organizationId, java.time.LocalDate day) {
+        if (!organizations.existsById(organizationId)) {
+            throw new NotFoundException("Organization " + organizationId + " not found");
+        }
+        return computeAsOf(organizationId, issuances.findAllByOrganization(organizationId), day);
+    }
+
+    CapTable computeAsOf(UUID organizationId, List<ShareIssuance> all, java.time.LocalDate day) {
+        var retired = CertificateChain.retiredOn(all);
+        List<ShareIssuance> rows = all.stream()
+                .filter(i -> !i.getDateIssued().isAfter(day))
+                .filter(i -> i.getStatus() == com.equigcc.domain.IssuanceStatus.ISSUED || retired.get(i.getId()).isAfter(day))
+                .toList();
+        CapTable t = compute(organizationId, rows, i -> i.getInstrumentType() == com.equigcc.domain.InstrumentType.SHARES);
+        Instant endOfDay = day.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().minusSeconds(1);
+        return new CapTable(t.organizationId(), endOfDay, t.totalIssuedShares(), t.totalFullyDilutedShares(), t.treasuryShares(),
+                t.totalVotingPower(), t.holders(), t.classes());
+    }
+
     /** Pure calculation over a set of ISSUED register rows; no database access. */
     CapTable compute(UUID organizationId, List<ShareIssuance> rows) {
+        return compute(organizationId, rows, ShareIssuance::countsAsOutstanding);
+    }
+
+    /** {@code outstanding} says which rows are issued shares (as opposed to options and other instruments). */
+    CapTable compute(UUID organizationId, List<ShareIssuance> rows, java.util.function.Predicate<ShareIssuance> outstanding) {
         Map<UUID, HolderAcc> byHolder = new LinkedHashMap<>();
         Map<UUID, ClassAcc> byClass = new LinkedHashMap<>();
         long treasury = 0;
@@ -71,7 +101,7 @@ public class CapTableService {
             holder.fullyDiluted += row.getQuantity();
             cls.fullyDiluted += row.getQuantity();
 
-            if (row.countsAsOutstanding()) {
+            if (outstanding.test(row)) {
                 BigDecimal votes = shareClass.getVotingMultiplier().multiply(BigDecimal.valueOf(row.getQuantity()));
                 holder.issued += row.getQuantity();
                 holder.votes = holder.votes.add(votes);
