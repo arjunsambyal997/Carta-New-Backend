@@ -108,6 +108,9 @@ Access tokens also carry `typ: access`; the short-lived token between password a
 | `POST /api/v1/auth/mfa/confirm` | Confirms a code, enables TOTP, returns an MFA-verified token |
 | `POST /api/v1/auth/login` | Password check; `OK`, `MFA_REQUIRED` (5-minute pending token) or `ORG_SELECTION_REQUIRED` |
 | `POST /api/v1/auth/mfa/verify` | Pending token + code, returns the verified token |
+| `POST /api/v1/auth/password/forgot` | Emails a reset link; always answers 202 so it cannot reveal which addresses have accounts; at most 3 per hour per account |
+| `POST /api/v1/auth/password/reset` | Token plus new password; the link works once, expires in 30 minutes, only the newest link is valid, a lockout is cleared and 2FA stays on |
+| `POST /api/v1/auth/password/change` | Signed-in user changes their password with the current one |
 | `GET /api/v1/auth/me` | Current subject, org, role |
 | `POST` / `GET /organizations/{id}/members` | FOUNDER invites (temporary password shown once) and lists members |
 | `GET /organizations/{id}/certificates`, `/certificates/{no}/pdf` | List certificates and download a bilingual PDF with a verification QR (shareholders can download only their own) |
@@ -115,17 +118,96 @@ Access tokens also carry `typ: access`; the short-lived token between password a
 
 TOTP is RFC 6238 (SHA-1, 6 digits, 30 s, plus or minus one step) with replay protection; secrets are AES-256-GCM encrypted at rest; passwords use BCrypt cost 12; five failed logins lock the account for 15 minutes; login errors are uniform. The `prod` profile refuses to start with the built-in development `JWT_SECRET` or `ENCRYPTION_KEY`. `scripts/auth-smoke-test.py` runs the whole flow against a live app.
 
-## Run
+## Run locally: full flow
+
+Prerequisites: Git, and either Docker (option A) or Java 21, Maven, Node 20+ and a PostgreSQL 16 (option B).
+
+### Option A: Docker (one command)
+
+Check out both repos side by side, then start the whole stack:
 
 ```bash
-docker run -d -p 5432:5432 -e POSTGRES_USER=equigcc -e POSTGRES_PASSWORD=equigcc -e POSTGRES_DB=equigcc postgres:16
-JWT_SECRET=<32+ random bytes> mvn spring-boot:run
-mvn test                          # unit + web-slice tests
-./scripts/smoke-test.sh           # end-to-end against the running app (needs psql)
+git clone https://github.com/arjunsambyal997/Carta-New-Backend.git
+git clone https://github.com/arjunsambyal997/Carta-New-Frontend.git
+cd Carta-New-Backend
+docker compose up --build
 ```
+
+This starts PostgreSQL 16, the backend on http://localhost:8081 and the UI on http://localhost:3000. Flyway creates the schema on first start. Data is kept in the `pgdata` volume; `docker compose down -v` wipes it. Reset links are printed in the backend logs: `docker compose logs -f backend`.
+
+### Option B: run the pieces yourself
+
+```bash
+# 1. Database. Use the container (host port 5433 here, in case a local Postgres already holds 5432),
+#    or your own Postgres (see below)
+docker run -d -p 5433:5432 -e POSTGRES_USER=equigcc -e POSTGRES_PASSWORD=equigcc -e POSTGRES_DB=equigcc postgres:16
+export DB_URL=jdbc:postgresql://localhost:5433/equigcc     # PowerShell: $env:DB_URL="jdbc:postgresql://localhost:5433/equigcc"
+
+# 2. Backend (terminal 1), listens on :8080. If that port is taken, set SERVER_PORT (any free port, e.g. 8081):
+#    bash: SERVER_PORT=8081 mvn spring-boot:run     PowerShell: $env:SERVER_PORT="8081"; mvn spring-boot:run
+mvn spring-boot:run
+
+# 3. Frontend (terminal 2), listens on :3000
+cd ../Carta-New-Frontend && npm install
+BACKEND_URL=http://localhost:8080 npm run dev     # PowerShell: $env:BACKEND_URL="http://localhost:8080"; npm run dev
+#   (use the same port you gave the backend, e.g. http://localhost:8081)
+```
+
+Using your own PostgreSQL instead of the container, for example database `postgres`, user `postgres`:
+
+```bash
+# macOS / Linux / Git Bash
+DB_URL=jdbc:postgresql://localhost:5432/postgres DB_USER=postgres DB_PASSWORD=<your password> mvn spring-boot:run
+```
+
+```powershell
+# Windows PowerShell (the VAR=value prefix form does not work there)
+$env:DB_URL="jdbc:postgresql://localhost:5432/postgres"; $env:DB_USER="postgres"; $env:DB_PASSWORD="<your password>"; mvn spring-boot:run
+```
+
+Environment variables set with `$env:` last for that PowerShell window only. The development defaults for `JWT_SECRET` and `ENCRYPTION_KEY` are built in and fine locally. The `prod` profile refuses to start with them.
+
+### Walk through the product
+
+1. Open http://localhost:3000/signup. Create an organization (name, licence number, certificate prefix, which must be unique per organization). You become the FOUNDER.
+2. `/security`: scan the QR with an authenticator app and enter a code. Data stays locked until two-factor is on.
+3. `/setup`: add a share class and shareholders. `/members` invites team members (a temporary password is shown once).
+4. `/certificates/new`: issue a certificate. `/certificates` lists them with English and Arabic PDFs. Scan the QR or open `/verify/<number>?h=<hash>` to check it.
+5. `/` shows the cap table, `/ownership` the ownership tree, `/waterfall` an exit waterfall.
+6. `/resolutions`: draft a board resolution, open voting, vote, close.
+7. `/ubo`: record the owners of a corporate holder, review the beneficial owners, export CSV or PDF.
+8. `/succession`: define a conversion rule, preview it, execute it. `/vault`: upload and download documents.
+9. `/audit`: check the hash-chain integrity.
+10. Password reset: sign out, choose "Forgot your password?", and enter your email. With no mail server set, the link is written to the backend log on a line starting `MAIL NOT CONFIGURED`. Open it, set a new password (12 characters or more), and sign in with the new password plus a code from your authenticator app. `/password` changes it while signed in.
+11. The EN / العربية toggle in the top bar flips the language and the layout direction.
+
+### Demo data
+
+`scripts/seed-demo.mjs` (Node 20+, no install step) fills an organization you already created with realistic data: five share classes (voting, 10-vote founder, Series A preferred with a 1.5x preference, non-voting, treasury), 14 shareholders with Arabic names, issuances, holding companies with multi-level ownership for the UBO report (two beneficial owners, one three levels deep, plus one deliberate gap), five board resolutions (passed, rejected, open with partial votes, draft), three draft succession rules and six vault documents.
+
+It asks for your email, password (hidden) and the current authenticator code; nothing is saved. In PowerShell, from the backend folder, with the backend on port 8081 as in the Docker setup (use 8080 for `mvn spring-boot:run`):
+
+```powershell
+$env:API_URL="http://localhost:8081"; node scripts/seed-demo.mjs
+```
+
+To skip the prompts: `$env:SEED_EMAIL`, `$env:SEED_PASSWORD` and `$env:SEED_TOTP`. Run it as the FOUNDER of the organization. It can be run again: anything that already exists is skipped. Board votes need a corporate secretary with two-factor on, so the script adds one throwaway secretary account (`demo-secretary-<random>@example.com`) whose password and two-factor secret are never shown or stored. Succession rules are left as drafts so you can preview and execute them yourself.
+
+### Tests
+
+```bash
+mvn test                                     # unit + web-slice tests
+./scripts/smoke-test.sh                      # end-to-end against the running app (needs psql)
+python3 scripts/auth-smoke-test.py           # signup, login, TOTP, invites
+python3 scripts/password-reset-smoke-test.py # reads the link from /tmp/backend.log, so run the backend with: mvn spring-boot:run > /tmp/backend.log
+```
+
+Other scripts in `scripts/`: `ubo-smoke-test.py`, `succession-vault-smoke-test.py`, `governance-smoke-test.sh`.
+
+Password reset email goes out through SMTP when `spring.mail.host` (env `SPRING_MAIL_HOST`, plus `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`) is set, from `MAIL_FROM`, with links built from `PUBLIC_BASE_URL`. Without a host the link is written to the log (development only) and the `prod` profile refuses to start. Existing access tokens stay valid until they expire (one hour) after a reset. `scripts/password-reset-smoke-test.py` runs the flow.
 
 Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (base64, 32 bytes), `ACCESS_TOKEN_TTL`, `CERT_VERIFY_URL`.
 
 ## Not built yet (from the PRD)
 
-Redis rate limiting, e-signature integration, official UBO filing formats.
+Redis rate limiting, token refresh, e-signature integration, official UBO filing formats.

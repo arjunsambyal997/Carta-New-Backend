@@ -263,6 +263,22 @@ public class AuthService {
         return users.findByEmail(email).orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
     }
 
+    /** Changes the signed-in user's password after checking the current one; wrong guesses count toward the lockout. */
+    @Transactional(noRollbackFor = UnauthorizedException.class)
+    public void changePassword(String email, String current, String next) {
+        requireStrong(next);
+        AppUser user = users.findByEmail(email).orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
+        if (user.isLocked(clock.instant())) {
+            throw new UnauthorizedException("Account temporarily locked. Try again later.");
+        }
+        if (!encoder.matches(current, user.getPasswordHash())) {
+            registerFailure(user);
+            throw new UnauthorizedException("Current password is incorrect");
+        }
+        user.setFailedAttempts(0);
+        user.setPasswordHash(encoder.encode(next));
+    }
+
     static void requireStrong(String password) {
         if (password == null || password.length() < 12) {
             throw new BusinessRuleException("Password must be at least 12 characters");

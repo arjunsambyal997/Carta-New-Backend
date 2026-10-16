@@ -23,6 +23,15 @@ public final class AuthDtos {
     public record MfaVerifyRequest(@NotBlank String mfaToken, @NotBlank String code) {
     }
 
+    public record ForgotPasswordRequest(@NotBlank @Email String email) {
+    }
+
+    public record ResetPasswordRequest(@NotBlank @Size(max = 200) String token, @NotBlank @Size(min = 12, max = 128) String newPassword) {
+    }
+
+    public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank @Size(min = 12, max = 128) String newPassword) {
+    }
+
     public record CodeRequest(@NotBlank String code) {
     }
 
