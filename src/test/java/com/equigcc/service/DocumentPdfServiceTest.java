@@ -75,4 +75,13 @@ class DocumentPdfServiceTest {
                 List.of(), 0, 0, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO);
         assertThat(text(service.statement(s))).contains("Shareholder statement", "None");
     }
+
+    @Test
+    void optionStatementShowsEachGrantsVesting() throws Exception {
+        var g = new DocumentPdfService.OptionGrant("ACME-000009", "Ordinary", "AED", new BigDecimal("2.5"), 4800, 1200, 200, 1000, 3600,
+                LocalDate.parse("2025-01-01"), 12, 48, LocalDate.parse("2026-01-01"), LocalDate.parse("2029-01-01"), LocalDate.parse("2026-11-01"));
+        String text = text(service.optionStatement(new DocumentPdfService.OptionStatement("Acme", null, "LIC-1",
+                new DocumentPdfService.Party("Omar Haddad", null, null), LocalDate.parse("2026-10-16"), List.of(g))));
+        assertThat(text).contains("Option statement", "Omar Haddad", "ACME-000009", "4,800", "3,600", "2029-01-01");
+    }
 }

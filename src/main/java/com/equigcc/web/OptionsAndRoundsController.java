@@ -54,7 +54,10 @@ public class OptionsAndRoundsController {
     @PostMapping("/rounds/simulate")
     @PreAuthorize(READ)
     public RoundSimulator.Result simulate(@PathVariable UUID orgId, @Valid @RequestBody OptionsAndRoundsDtos.SimulateRoundRequest r) {
-        return rounds.simulate(orgId, new RoundSimulator.Input(r.preMoney(), r.investment(), r.poolPct(), r.investorName()));
+        var convertibles = r.convertibles() == null ? java.util.List.<RoundSimulator.Convertible>of() : r.convertibles().stream()
+                .map(c -> new RoundSimulator.Convertible(c.name(), c.kind() == null ? "SAFE" : c.kind(), c.amount(), c.interestPct(), c.months(), c.capValuation(), c.discountPct()))
+                .toList();
+        return rounds.simulate(orgId, new RoundSimulator.Input(r.preMoney(), r.investment(), r.poolPct(), r.investorName(), convertibles));
     }
 
     @Operation(summary = "Option grants with vested, exercisable and unvested counts on a date (default today)")

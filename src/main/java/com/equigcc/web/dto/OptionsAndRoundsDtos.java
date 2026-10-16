@@ -22,7 +22,21 @@ public final class OptionsAndRoundsDtos {
             @NotNull @Positive BigDecimal investment,
             /* Option pool as a share of the company after the round, 0 to 50. */
             @DecimalMin("0") @DecimalMax("50") BigDecimal poolPct,
-            @Size(max = 200) String investorName) {
+            @Size(max = 200) String investorName,
+            /* SAFEs and convertible notes that convert in this round. */
+            @Size(max = 20) java.util.List<@jakarta.validation.Valid Convertible> convertibles) {
+    }
+
+    public record Convertible(
+            @Size(max = 100) String name,
+            /* SAFE or NOTE. */
+            @jakarta.validation.constraints.Pattern(regexp = "SAFE|NOTE") String kind,
+            @NotNull @Positive BigDecimal amount,
+            /* Notes only: simple interest per year, and how many months it has run. */
+            @DecimalMin("0") @DecimalMax("100") BigDecimal interestPct,
+            @Min(0) @Max(120) Integer months,
+            @Positive BigDecimal capValuation,
+            @DecimalMin("0") @DecimalMax("99.99") BigDecimal discountPct) {
     }
 
     public record VestingRequest(
