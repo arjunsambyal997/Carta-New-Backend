@@ -1,0 +1,90 @@
+# Production stack on one server: HTTPS reverse proxy, frontend, backend, Postgres and a daily backup job.
+#   cp .env.example .env   (fill in every value)
+#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# Expects the frontend repo checked out next to this one (../../Carta-New-Frontend relative to this folder).
+services:
+  proxy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on:
+      - frontend
+
+  frontend:
+    build:
+      context: ../../Carta-New-Frontend
+      args:
+        BACKEND_URL: http://backend:8080
+    restart: unless-stopped
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ..
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: jdbc:postgresql://db:5432/equigcc
+      DB_USER: equigcc
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env}
+      PUBLIC_BASE_URL: https://${DOMAIN}
+      CERT_VERIFY_URL: https://${DOMAIN}/verify/
+      MAIL_FROM: ${MAIL_FROM:?set MAIL_FROM in .env}
+      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:?set SPRING_MAIL_HOST in .env}
+      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
+      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
+      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+      # The proxy sets X-Forwarded-For, so rate limits count the real client, not the proxy.
+      RATE_LIMIT_TRUST_FORWARDED: "true"
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: equigcc
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: equigcc
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U equigcc"]
+      interval: 5s
+      retries: 20
+
+  backup:
+    image: postgres:16
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: equigcc
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: equigcc
+      BACKUP_DIR: /backups
+      RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+    volumes:
+      - ./backup.sh:/backup.sh:ro
+      - ${BACKUP_PATH:-./backups}:/backups
+    # one dump at start, then one every 24 hours
+    entrypoint: ["/bin/sh", "-c", "while true; do /bin/sh /backup.sh || echo 'backup failed'; sleep 86400; done"]
+
+volumes:
+  pgdata:
+  caddy_data:

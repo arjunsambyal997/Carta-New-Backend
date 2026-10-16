@@ -26,6 +26,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -46,8 +47,16 @@ class AuthServiceTest {
 
     @BeforeEach
     void setUp() {
+        var sessionRepo = mock(com.equigcc.repository.AuthSessionRepository.class);
+        when(sessionRepo.save(any())).thenAnswer(i -> {
+            var s = (com.equigcc.domain.AuthSession) i.getArgument(0);
+            if (s.getId() == null) {
+                s.setId(UUID.randomUUID());
+            }
+            return s;
+        });
         service = new AuthService(users, memberships, organizations, mock(ShareholderRepository.class),
-                encoder, jwt, cipher, Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofHours(1), 5, Duration.ofMinutes(15));
+                new SessionService(sessionRepo, Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofDays(14)), encoder, jwt, cipher, Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofHours(1), 5, Duration.ofMinutes(15));
         user = new AppUser();
         user.setId(UUID.randomUUID());
         user.setEmail("fatima@alnoor.ae");

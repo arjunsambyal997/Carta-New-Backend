@@ -32,6 +32,9 @@ public final class AuthDtos {
     public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank @Size(min = 12, max = 128) String newPassword) {
     }
 
+    public record RefreshRequest(@NotBlank @Size(max = 200) String refreshToken) {
+    }
+
     public record CodeRequest(@NotBlank String code) {
     }
 

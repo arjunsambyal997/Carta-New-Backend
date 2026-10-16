@@ -39,6 +39,7 @@ public class AuthService {
     private final MembershipRepository memberships;
     private final OrganizationRepository organizations;
     private final ShareholderRepository shareholders;
+    private final SessionService sessions;
     private final PasswordEncoder encoder;
     private final JwtService jwt;
     private final SecretCipher cipher;
@@ -49,7 +50,7 @@ public class AuthService {
     private final String dummyHash;
 
     public AuthService(AppUserRepository users, MembershipRepository memberships, OrganizationRepository organizations,
-                       ShareholderRepository shareholders, PasswordEncoder encoder, JwtService jwt, SecretCipher cipher, Clock clock,
+                       ShareholderRepository shareholders, SessionService sessions, PasswordEncoder encoder, JwtService jwt, SecretCipher cipher, Clock clock,
                        @Value("${equigcc.security.access-token-ttl}") Duration accessTtl,
                        @Value("${equigcc.security.max-failed-logins}") int maxFailed,
                        @Value("${equigcc.security.lockout}") Duration lockout) {
@@ -57,6 +58,7 @@ public class AuthService {
         this.memberships = memberships;
         this.organizations = organizations;
         this.shareholders = shareholders;
+        this.sessions = sessions;
         this.encoder = encoder;
         this.jwt = jwt;
         this.cipher = cipher;
@@ -132,7 +134,7 @@ public class AuthService {
             return AuthResult.mfa(jwt.issuePending(user.getEmail(), orgId, PENDING_TTL), orgId,
                     chosen.getRole().name(), user.getDisplayName());
         }
-        return AuthResult.ok(accessToken(user, chosen, false), true, orgId, chosen.getRole().name(), user.getDisplayName());
+        return AuthResult.ok(accessToken(user, chosen, false, null), null, true, orgId, chosen.getRole().name(), user.getDisplayName());
     }
 
     @Transactional(noRollbackFor = UnauthorizedException.class)
@@ -155,7 +157,42 @@ public class AuthService {
         Membership m = memberships.findByUserIdAndOrganizationId(user.getId(), orgId)
                 .orElseThrow(() -> new UnauthorizedException("No access to that organization"));
         acceptCode(user, code);
-        return AuthResult.ok(accessToken(user, m, true), false, orgId, m.getRole().name(), user.getDisplayName());
+        return signedIn(user, m);
+    }
+
+    /** Exchanges a refresh token for a new access token and a new refresh token. */
+    @Transactional(noRollbackFor = UnauthorizedException.class)
+    public AuthResult refresh(String refreshToken) {
+        var opened = sessions.rotate(refreshToken);
+        var session = opened.session();
+        AppUser user = users.findById(session.getUserId()).orElse(null);
+        Membership m = user == null ? null : memberships.findByUserIdAndOrganizationId(user.getId(), session.getOrganizationId()).orElse(null);
+        if (user == null || m == null || user.isLocked(clock.instant())) {
+            sessions.revoke(session.getId());
+            throw new UnauthorizedException("Your session has ended. Sign in again.");
+        }
+        return AuthResult.ok(accessToken(user, m, session.isMfa(), session.getId()), opened.refreshToken(), false,
+                session.getOrganizationId(), m.getRole().name(), user.getDisplayName());
+    }
+
+    /** Ends the session an access token belongs to. */
+    public void logout(UUID sessionId) {
+        if (sessionId != null) {
+            sessions.revoke(sessionId);
+        }
+    }
+
+    /** Re-checks the second factor for an action that needs a fresh confirmation, such as signing. Same replay rules as sign-in. */
+    @Transactional(noRollbackFor = UnauthorizedException.class)
+    public void confirmSecondFactor(String email, String code) {
+        AppUser user = require(email);
+        if (!user.isTotpEnabled()) {
+            throw new UnauthorizedException("Set up a second factor first");
+        }
+        if (user.isLocked(clock.instant())) {
+            throw new UnauthorizedException("Account temporarily locked. Try again later.");
+        }
+        acceptCode(user, code);
     }
 
     public record Enrollment(String secret, String otpauthUri) {
@@ -182,7 +219,7 @@ public class AuthService {
         user.setTotpEnabled(true);
         Membership m = memberships.findByUserIdAndOrganizationId(user.getId(), orgId)
                 .orElseThrow(() -> new UnauthorizedException("No access to that organization"));
-        return AuthResult.ok(accessToken(user, m, true), false, orgId, m.getRole().name(), user.getDisplayName());
+        return signedIn(user, m);
     }
 
     public record MemberInvite(String email, String displayName, Role role, UUID shareholderId) {
@@ -235,10 +272,17 @@ public class AuthService {
         user.setFailedAttempts(failed);
     }
 
-    private String accessToken(AppUser user, Membership m, boolean mfa) {
+    /** A fully verified sign-in: opens a server-side session and returns its access and refresh tokens. */
+    private AuthResult signedIn(AppUser user, Membership m) {
+        var opened = sessions.open(user.getId(), m.getOrganization().getId(), true);
+        return AuthResult.ok(accessToken(user, m, true, opened.session().getId()), opened.refreshToken(), false,
+                m.getOrganization().getId(), m.getRole().name(), user.getDisplayName());
+    }
+
+    private String accessToken(AppUser user, Membership m, boolean mfa, UUID sessionId) {
         UUID shareholderId = m.getShareholder() == null ? null : m.getShareholder().getId();
         return jwt.issue(user.getEmail(), List.of(m.getRole().name()), List.of(m.getOrganization().getId()),
-                mfa, shareholderId, accessTtl);
+                mfa, shareholderId, sessionId, accessTtl);
     }
 
     private AppUser newUser(String email, String displayName, String password) {
@@ -265,7 +309,7 @@ public class AuthService {
 
     /** Changes the signed-in user's password after checking the current one; wrong guesses count toward the lockout. */
     @Transactional(noRollbackFor = UnauthorizedException.class)
-    public void changePassword(String email, String current, String next) {
+    public void changePassword(String email, String current, String next, UUID keepSession) {
         requireStrong(next);
         AppUser user = users.findByEmail(email).orElseThrow(() -> new UnauthorizedException("Invalid credentials"));
         if (user.isLocked(clock.instant())) {
@@ -277,6 +321,7 @@ public class AuthService {
         }
         user.setFailedAttempts(0);
         user.setPasswordHash(encoder.encode(next));
+        sessions.revokeAll(user.getId(), keepSession); // other devices must sign in again
     }
 
     static void requireStrong(String password) {

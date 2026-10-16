@@ -204,11 +204,17 @@ python3 scripts/password-reset-smoke-test.py # reads the link from /tmp/backend.
 
 Other scripts in `scripts/`: `ubo-smoke-test.py`, `succession-vault-smoke-test.py`, `governance-smoke-test.sh`.
 
-Password reset email goes out through SMTP when `spring.mail.host` (env `SPRING_MAIL_HOST`, plus `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`) is set, from `MAIL_FROM`, with links built from `PUBLIC_BASE_URL`. Without a host the link is written to the log (development only) and the `prod` profile refuses to start. Existing access tokens stay valid until they expire (one hour) after a reset. `scripts/password-reset-smoke-test.py` runs the flow.
+Password reset email goes out through SMTP when `spring.mail.host` (env `SPRING_MAIL_HOST`, plus `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`) is set, from `MAIL_FROM`, with links built from `PUBLIC_BASE_URL`. Without a host the link is written to the log (development only) and the `prod` profile refuses to start. A reset signs the account out everywhere. `scripts/password-reset-smoke-test.py` runs the flow.
 
 Email notices use the same mail settings. A vote opening goes to every member and to every shareholder with an email address; a reminder goes once, in the 24 hours before the deadline, to people who have not voted yet; a certificate issued (or received through a transfer) is emailed to the holder with a verification link. Set `NOTICES_ENABLED=false` to turn them off. Without a mail host the notices are logged as `NOTICE (mail not configured)`. Imports never send email. `scripts/rounds-options-smoke-test.py` covers the round simulator, vesting, exercise and the vote-open notice.
 
-Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (base64, 32 bytes), `ACCESS_TOKEN_TTL`, `CERT_VERIFY_URL`.
+Sign-in sessions live on the server. `POST /api/v1/auth/refresh` swaps a refresh token for a new access token and a new refresh token; using an old refresh token again signs the whole session out. `POST /api/v1/auth/logout` ends the session at once, and changing a password ends the account's other sessions. Sign-in, sign-up, code, password and refresh calls are limited per client (30 a minute by default).
+
+Shareholder portal: invite a person with the role `SHAREHOLDER` linked to their holder record (Members page). `GET /api/v1/portal/summary` returns only their own holdings, certificates and open votes; they can vote, download their own certificates and sign them. Staff and shareholders sign resolutions and certificates with `POST /api/v1/organizations/{orgId}/signatures`, which needs a fresh authenticator code (a code already used to sign in cannot be used again, so wait for the next one). A signature records the signer, a SHA-256 of the document and the time; it shows as no longer valid if the document changes. It is an internal attestation, not a qualified e-signature under UAE or KSA law. `scripts/portal-signing-sessions-smoke-test.py` runs all of this against a live app (about 90 seconds).
+
+Deploying on a server, with HTTPS and daily backups: see `docs/DEPLOYMENT.md`.
+
+Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (base64, 32 bytes), `ACCESS_TOKEN_TTL` (default 15 minutes), `REFRESH_TOKEN_TTL` (14 days), `CERT_VERIFY_URL`, `NOTICES_ENABLED`, `RATE_LIMIT_*` (see `docs/DEPLOYMENT.md`).
 
 ## Not built yet (from the PRD)
 

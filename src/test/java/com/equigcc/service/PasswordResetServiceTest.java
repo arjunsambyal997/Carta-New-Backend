@@ -41,7 +41,7 @@ class PasswordResetServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new PasswordResetService(users, tokens, encoder, mailer, Clock.fixed(NOW, ZoneOffset.UTC),
+        service = new PasswordResetService(users, tokens, encoder, mailer, new SessionService(mock(com.equigcc.repository.AuthSessionRepository.class), Clock.fixed(NOW, ZoneOffset.UTC), Duration.ofDays(14)), Clock.fixed(NOW, ZoneOffset.UTC),
                 Duration.ofMinutes(30), 3, "https://app.example/");
         user = new AppUser();
         user.setId(UUID.randomUUID());
