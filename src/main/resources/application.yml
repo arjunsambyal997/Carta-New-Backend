@@ -34,6 +34,8 @@ equigcc:
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:3000}
   mail:
     from: ${MAIL_FROM:no-reply@equigcc.local}
+  notices:
+    enabled: ${NOTICES_ENABLED:true}
   password-reset:
     token-ttl: PT30M
     max-requests-per-hour: 3

@@ -38,8 +38,11 @@ public class ResolutionController {
 
     private final ResolutionService service;
 
-    public ResolutionController(ResolutionService service) {
+    private final com.equigcc.service.NoticeService notices;
+
+    public ResolutionController(ResolutionService service, com.equigcc.service.NoticeService notices) {
         this.service = service;
+        this.notices = notices;
     }
 
     @PostMapping
@@ -71,6 +74,7 @@ public class ResolutionController {
     @PreAuthorize(OFFICER)
     public ResolutionViews.Resolution open(@PathVariable UUID orgId, @PathVariable UUID id, Authentication auth) {
         BoardResolution r = service.open(orgId, id, auth.getName());
+        notices.resolutionOpened(orgId, id);
         return ResolutionViews.Resolution.from(r, service.tallyOf(r));
     }
 

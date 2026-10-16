@@ -46,9 +46,11 @@ public class RegisterToolsController {
     private final SearchService search;
     private final CapTableExportService exports;
     private final String verificationBaseUrl;
+    private final com.equigcc.service.NoticeService notices;
 
-    public RegisterToolsController(ImportService imports, TransferService transfers, SearchService search, CapTableExportService exports,
+    public RegisterToolsController(com.equigcc.service.NoticeService notices, ImportService imports, TransferService transfers, SearchService search, CapTableExportService exports,
                                    @Value("${equigcc.certificates.verification-base-url}") String verificationBaseUrl) {
+        this.notices = notices;
         this.imports = imports;
         this.transfers = transfers;
         this.search = search;
@@ -108,9 +110,10 @@ public class RegisterToolsController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize(WRITE)
     public List<CertificateResponse> transfer(@PathVariable UUID orgId, @Valid @RequestBody RegisterToolsDtos.TransferRequest r, Authentication auth) {
-        return transfers.transfer(orgId, new TransferService.Transfer(r.fromShareholderId(), r.toShareholderId(), r.shareClassId(), r.quantity(),
-                r.pricePerShare(), r.date(), r.resolutionId(), r.reference()), auth.getName())
-                .stream().map(i -> CertificateResponse.from(i, verificationBaseUrl)).toList();
+        var created = transfers.transfer(orgId, new TransferService.Transfer(r.fromShareholderId(), r.toShareholderId(), r.shareClassId(), r.quantity(),
+                r.pricePerShare(), r.date(), r.resolutionId(), r.reference()), auth.getName());
+        created.stream().filter(i -> i.getShareholder().getId().equals(r.toShareholderId())).forEach(i -> notices.certificateIssued(orgId, i.getCertificateNo()));
+        return created.stream().map(i -> CertificateResponse.from(i, verificationBaseUrl)).toList();
     }
 
     @Operation(summary = "Buy shares back from a holder into treasury")

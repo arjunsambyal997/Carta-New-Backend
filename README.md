@@ -206,6 +206,8 @@ Other scripts in `scripts/`: `ubo-smoke-test.py`, `succession-vault-smoke-test.p
 
 Password reset email goes out through SMTP when `spring.mail.host` (env `SPRING_MAIL_HOST`, plus `SPRING_MAIL_PORT`, `SPRING_MAIL_USERNAME`, `SPRING_MAIL_PASSWORD`) is set, from `MAIL_FROM`, with links built from `PUBLIC_BASE_URL`. Without a host the link is written to the log (development only) and the `prod` profile refuses to start. Existing access tokens stay valid until they expire (one hour) after a reset. `scripts/password-reset-smoke-test.py` runs the flow.
 
+Email notices use the same mail settings. A vote opening goes to every member and to every shareholder with an email address; a reminder goes once, in the 24 hours before the deadline, to people who have not voted yet; a certificate issued (or received through a transfer) is emailed to the holder with a verification link. Set `NOTICES_ENABLED=false` to turn them off. Without a mail host the notices are logged as `NOTICE (mail not configured)`. Imports never send email. `scripts/rounds-options-smoke-test.py` covers the round simulator, vesting, exercise and the vote-open notice.
+
 Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (base64, 32 bytes), `ACCESS_TOKEN_TTL`, `CERT_VERIFY_URL`.
 
 ## Not built yet (from the PRD)

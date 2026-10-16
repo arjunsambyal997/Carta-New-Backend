@@ -57,6 +57,9 @@ public class BoardResolution extends BaseEntity {
     @Column(name = "closed_at")
     private Instant closedAt;
 
+    @Column(name = "reminder_sent_at")
+    private Instant reminderSentAt;
+
     public Organization getOrganization() { return organization; }
     public void setOrganization(Organization organization) { this.organization = organization; }
     public String getTitle() { return title; }
@@ -81,4 +84,6 @@ public class BoardResolution extends BaseEntity {
     public void setOpenedAt(Instant openedAt) { this.openedAt = openedAt; }
     public Instant getClosedAt() { return closedAt; }
     public void setClosedAt(Instant closedAt) { this.closedAt = closedAt; }
+    public Instant getReminderSentAt() { return reminderSentAt; }
+    public void setReminderSentAt(Instant reminderSentAt) { this.reminderSentAt = reminderSentAt; }
 }
