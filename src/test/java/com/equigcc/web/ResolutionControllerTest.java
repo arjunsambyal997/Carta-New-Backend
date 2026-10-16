@@ -122,4 +122,12 @@ class ResolutionControllerTest {
         v.setCastAt(Instant.now());
         return v;
     }
+
+    @Test
+    void shareholderCannotSendReminders() throws Exception {
+        mvc.perform(post("/api/v1/organizations/{orgId}/resolutions/{id}/remind", ORG, RES)
+                        .header("Authorization", "Bearer " + token("SHAREHOLDER", MINE, true)))
+                .andExpect(status().isForbidden());
+        verify(service, never()).markReminded(any(), any(), any());
+    }
 }

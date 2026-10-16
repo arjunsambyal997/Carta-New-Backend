@@ -108,6 +108,44 @@ public class NoticeService {
         }
     }
 
+    public boolean enabled() {
+        return enabled;
+    }
+
+    /** Emails everyone who can still vote on an open resolution, now. Returns how many addresses it went to. */
+    @Transactional(readOnly = true)
+    public int remindNonVoters(UUID orgId, UUID resolutionId) {
+        BoardResolution r = resolutions.findByIdAndOrganizationId(resolutionId, orgId).orElse(null);
+        if (!enabled || r == null || r.getStatus() != ResolutionStatus.ACTIVE) {
+            return 0;
+        }
+        Set<UUID> voted = votes.findByResolution(r.getId()).stream().map(v -> v.getShareholder().getId()).collect(Collectors.toSet());
+        Set<String> to = voterEmails(orgId, voted, true);
+        sendReminder(r, to);
+        return to.size();
+    }
+
+    @Async
+    @Transactional(readOnly = true)
+    public void resolutionClosed(UUID orgId, UUID resolutionId) {
+        if (!enabled) {
+            return;
+        }
+        try {
+            BoardResolution r = resolutions.findByIdAndOrganizationId(resolutionId, orgId).orElse(null);
+            if (r == null || (r.getStatus() != ResolutionStatus.PASSED && r.getStatus() != ResolutionStatus.REJECTED)) {
+                return;
+            }
+            boolean passed = r.getStatus() == ResolutionStatus.PASSED;
+            String org = r.getOrganization().getLegalNameEn();
+            send(voterEmails(orgId, Set.of(), false), (passed ? "Passed: " : "Rejected: ") + r.getTitle() + (passed ? " / تمت الموافقة" : " / تم الرفض"),
+                    "Voting has closed at " + org + ".\n\n" + r.getTitle() + "\nResult: " + (passed ? "PASSED" : "REJECTED") + "\nDetails: " + baseUrl + "/resolutions/" + r.getId()
+                            + "\n\nأُغلق التصويت في " + org + ".\n" + (r.getTitleAr() != null ? r.getTitleAr() + "\n" : "") + "النتيجة: " + (passed ? "تمت الموافقة" : "مرفوض") + "\n");
+        } catch (RuntimeException e) {
+            log.warn("Could not send result notices for {}: {}", resolutionId, e.toString());
+        }
+    }
+
     /** Sends the one-off deadline reminder to everyone who has not voted yet. Returns how many resolutions were handled. */
     @Scheduled(fixedDelayString = "${equigcc.notices.reminder-check:PT15M}", initialDelayString = "PT1M")
     @Transactional
@@ -120,10 +158,7 @@ public class NoticeService {
         for (BoardResolution r : resolutions.findDueForReminder(now, now.plus(REMINDER_WINDOW))) {
             try {
                 Set<UUID> voted = votes.findByResolution(r.getId()).stream().map(v -> v.getShareholder().getId()).collect(Collectors.toSet());
-                Set<String> to = voterEmails(r.getOrganization().getId(), voted, true);
-                send(to, "Reminder: vote closes soon on " + r.getTitle() + " / تذكير بالتصويت",
-                        "You have not voted yet on: " + r.getTitle() + "\nVoting closes: " + r.getVotingDeadline() + "\nVote here: " + baseUrl + "/resolutions/" + r.getId()
-                                + "\n\nلم تصوّت بعد على: " + (r.getTitleAr() != null ? r.getTitleAr() : r.getTitle()) + "\nآخر موعد: " + r.getVotingDeadline() + "\n");
+                sendReminder(r, voterEmails(r.getOrganization().getId(), voted, true));
                 r.setReminderSentAt(now);
                 handled++;
             } catch (RuntimeException e) {
@@ -131,6 +166,12 @@ public class NoticeService {
             }
         }
         return handled;
+    }
+
+    private void sendReminder(BoardResolution r, Set<String> to) {
+        send(to, "Reminder: vote closes soon on " + r.getTitle() + " / تذكير بالتصويت",
+                "You have not voted yet on: " + r.getTitle() + "\nVoting closes: " + r.getVotingDeadline() + "\nVote here: " + baseUrl + "/resolutions/" + r.getId()
+                        + "\n\nلم تصوّت بعد على: " + (r.getTitleAr() != null ? r.getTitleAr() : r.getTitle()) + "\nآخر موعد: " + r.getVotingDeadline() + "\n");
     }
 
     /** Members and shareholders with an email, minus holders who already voted. For reminders only people who can vote are kept. */
