@@ -101,4 +101,35 @@ class NoticeServiceTest {
         service(false).resolutionOpened(UUID.randomUUID(), UUID.randomUUID());
         verify(mailer, never()).send(any(), any(), any());
     }
+
+    @Test
+    void manualReminderSkipsHoldersWhoVotedAndCountsRecipients() {
+        UUID orgId = UUID.randomUUID();
+        var r = due(orgId);
+        var voted = holder("voted@example.com");
+        var vote = new VoteRecord();
+        vote.setShareholder(voted);
+        when(resolutions.findByIdAndOrganizationId(r.getId(), orgId)).thenReturn(java.util.Optional.of(r));
+        when(votes.findByResolution(r.getId())).thenReturn(List.of(vote));
+        when(members.findByOrganization(orgId)).thenReturn(List.of());
+        when(shareholders.findByOrganizationIdOrderByFullNameEnAsc(orgId)).thenReturn(List.of(voted, holder("a@example.com"), holder("b@example.com")));
+
+        assertThat(service(true).remindNonVoters(orgId, r.getId())).isEqualTo(2);
+        verify(mailer, never()).send(eq("voted@example.com"), any(), any());
+    }
+
+    @Test
+    void closingSendsTheResultToEveryone() {
+        UUID orgId = UUID.randomUUID();
+        var r = due(orgId);
+        r.getOrganization().setLegalNameEn("Acme");
+        r.setStatus(ResolutionStatus.PASSED);
+        when(resolutions.findByIdAndOrganizationId(r.getId(), orgId)).thenReturn(java.util.Optional.of(r));
+        when(members.findByOrganization(orgId)).thenReturn(List.of());
+        when(shareholders.findByOrganizationIdOrderByFullNameEnAsc(orgId)).thenReturn(List.of(holder("a@example.com")));
+
+        service(true).resolutionClosed(orgId, r.getId());
+
+        verify(mailer).send(eq("a@example.com"), org.mockito.ArgumentMatchers.startsWith("Passed: Approve budget"), any());
+    }
 }

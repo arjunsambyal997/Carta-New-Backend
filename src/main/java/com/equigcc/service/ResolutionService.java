@@ -31,6 +31,8 @@ public class ResolutionService {
 
     private static final BigDecimal HUNDRED = BigDecimal.valueOf(100);
 
+    static final java.time.Duration MANUAL_REMINDER_GAP = java.time.Duration.ofHours(1);
+
     private final OrganizationRepository organizations;
     private final BoardResolutionRepository resolutions;
     private final VoteRecordRepository votes;
@@ -143,6 +145,22 @@ public class ResolutionService {
         audit.record(orgId, "BoardResolution", id, AuditAction.UPDATE,
                 "closed as " + r.getStatus() + " (for " + tally.forWeight().toPlainString() + ", against "
                         + tally.againstWeight().toPlainString() + ", participation " + tally.participationPct() + "%)", user);
+        return r;
+    }
+
+    /** Records a hand-sent reminder to non-voters; at most one an hour per resolution, so members are not spammed. */
+    @Transactional
+    public BoardResolution markReminded(UUID orgId, UUID id, String user) {
+        var r = lock(orgId, id);
+        Instant now = clock.instant();
+        if (r.getStatus() != ResolutionStatus.ACTIVE || !now.isBefore(r.getVotingDeadline())) {
+            throw new BusinessRuleException("Reminders can only be sent while voting is open");
+        }
+        if (r.getManualReminderAt() != null && r.getManualReminderAt().isAfter(now.minus(MANUAL_REMINDER_GAP))) {
+            throw new BusinessRuleException("A reminder was sent less than an hour ago");
+        }
+        r.setManualReminderAt(now);
+        audit.record(orgId, "BoardResolution", id, AuditAction.UPDATE, "reminder sent to members who have not voted", user);
         return r;
     }
 

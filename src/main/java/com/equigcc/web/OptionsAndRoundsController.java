@@ -37,11 +37,13 @@ public class OptionsAndRoundsController {
     private final RoundSimulator rounds;
     private final VestingService vesting;
     private final String verificationBaseUrl;
+    private final com.equigcc.service.NoticeService notices;
 
-    public OptionsAndRoundsController(RoundSimulator rounds, VestingService vesting,
+    public OptionsAndRoundsController(RoundSimulator rounds, VestingService vesting, com.equigcc.service.NoticeService notices,
                                       @Value("${equigcc.certificates.verification-base-url}") String verificationBaseUrl) {
         this.rounds = rounds;
         this.vesting = vesting;
+        this.notices = notices;
         this.verificationBaseUrl = verificationBaseUrl;
     }
 
@@ -73,7 +75,9 @@ public class OptionsAndRoundsController {
     @PreAuthorize(WRITE)
     public List<CertificateResponse> exercise(@PathVariable UUID orgId, @PathVariable String certificateNo,
                                               @Valid @RequestBody OptionsAndRoundsDtos.ExerciseRequest r, Authentication auth) {
-        return vesting.exercise(orgId, certificateNo, r.quantity(), r.shareClassId(), r.date(), auth.getName()).stream()
-                .map(c -> CertificateResponse.from(c, verificationBaseUrl)).toList();
+        var issued = vesting.exercise(orgId, certificateNo, r.quantity(), r.shareClassId(), r.date(), auth.getName());
+        issued.stream().filter(c -> c.getInstrumentType() == com.equigcc.domain.InstrumentType.SHARES)
+                .forEach(c -> notices.certificateIssued(orgId, c.getCertificateNo()));
+        return issued.stream().map(c -> CertificateResponse.from(c, verificationBaseUrl)).toList();
     }
 }

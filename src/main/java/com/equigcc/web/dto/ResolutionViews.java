@@ -30,12 +30,17 @@ public final class ResolutionViews {
             String createdBy,
             Instant openedAt,
             Instant closedAt,
+            Instant lastReminderAt,
             ResolutionTally tally) {
 
         public static Resolution from(BoardResolution r, ResolutionTally tally) {
             return new Resolution(r.getId(), r.getTitle(), r.getTitleAr(), r.getDescription(), r.getThreshold(),
                     r.getQuorumPct(), r.getVotingDeadline(), r.getStatus(), r.getTotalVotingPower(), r.getCreatedBy(),
-                    r.getOpenedAt(), r.getClosedAt(), tally);
+                    r.getOpenedAt(), r.getClosedAt(), latest(r.getReminderSentAt(), r.getManualReminderAt()), tally);
+        }
+
+        private static Instant latest(Instant a, Instant b) {
+            return a == null ? b : b == null ? a : (a.isAfter(b) ? a : b);
         }
     }
 
@@ -51,6 +56,9 @@ public final class ResolutionViews {
             return new Vote(v.getShareholder().getId(), v.getShareholder().getFullNameEn(),
                     v.getShareholder().getFullNameAr(), v.getVote(), v.getWeightApplied(), v.getCastAt());
         }
+    }
+
+    public record Reminder(int recipients, Instant sentAt) {
     }
 
     public record Detail(Resolution resolution, List<Vote> votes) {

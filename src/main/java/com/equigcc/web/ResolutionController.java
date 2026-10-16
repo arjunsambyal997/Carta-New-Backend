@@ -90,7 +90,19 @@ public class ResolutionController {
     @PreAuthorize(OFFICER)
     public ResolutionViews.Resolution close(@PathVariable UUID orgId, @PathVariable UUID id, Authentication auth) {
         BoardResolution r = service.close(orgId, id, auth.getName());
+        notices.resolutionClosed(orgId, id);
         return ResolutionViews.Resolution.from(r, service.tallyOf(r));
+    }
+
+    /** Emails everyone who has not voted yet. Throttled to once an hour per resolution. */
+    @PostMapping("/{id}/remind")
+    @PreAuthorize(OFFICER)
+    public ResolutionViews.Reminder remind(@PathVariable UUID orgId, @PathVariable UUID id, Authentication auth) {
+        if (!notices.enabled()) {
+            throw new com.equigcc.service.BusinessRuleException("Email notices are switched off on this server");
+        }
+        BoardResolution r = service.markReminded(orgId, id, auth.getName());
+        return new ResolutionViews.Reminder(notices.remindNonVoters(orgId, id), r.getManualReminderAt());
     }
 
     private static UUID voterFor(CastVoteRequest req, Authentication auth) {
