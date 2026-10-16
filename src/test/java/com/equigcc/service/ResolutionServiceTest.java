@@ -220,4 +220,25 @@ class ResolutionServiceTest {
         h.setFullNameEn(name);
         return h;
     }
+
+    // ---- manual reminders ----------------------------------------------------------------------
+
+    @Test
+    void manualReminderIsThrottledToOncePerHour() {
+        service.markReminded(orgId, resId, "sec");
+        assertThat(active.getManualReminderAt()).isEqualTo(NOW);
+        assertThatThrownBy(() -> service.markReminded(orgId, resId, "sec"))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("less than an hour");
+        active.setManualReminderAt(NOW.minusSeconds(3601));
+        service.markReminded(orgId, resId, "sec");
+    }
+
+    @Test
+    void manualReminderNeedsOpenVoting() {
+        active.setStatus(ResolutionStatus.DRAFT);
+        assertThatThrownBy(() -> service.markReminded(orgId, resId, "sec")).isInstanceOf(BusinessRuleException.class);
+        active.setStatus(ResolutionStatus.ACTIVE);
+        active.setVotingDeadline(NOW);
+        assertThatThrownBy(() -> service.markReminded(orgId, resId, "sec")).isInstanceOf(BusinessRuleException.class);
+    }
 }
