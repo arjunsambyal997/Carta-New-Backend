@@ -69,6 +69,20 @@ public class AuthService {
         this.dummyHash = encoder.encode("not-a-real-password");
     }
 
+    /**
+     * Development and test only: skip the authenticator everywhere (sign-in, enrollment prompts, signing).
+     * The app refuses to start in the prod profile with this on, and logs a warning whenever it is on.
+     */
+    @org.springframework.beans.factory.annotation.Value("${equigcc.dev.skip-mfa:false}")
+    private boolean skipMfa;
+
+    @jakarta.annotation.PostConstruct
+    void warnIfMfaSkipped() {
+        if (skipMfa) {
+            org.slf4j.LoggerFactory.getLogger(AuthService.class).warn("equigcc.dev.skip-mfa is ON: authenticator codes are NOT checked. Development only.");
+        }
+    }
+
     public record SignupCommand(String email, String password, String displayName, String legalNameEn,
                                 String legalNameAr, Jurisdiction jurisdiction, String commercialLicenseNo,
                                 Currency baseCurrency, String certificatePrefix) {
@@ -130,6 +144,9 @@ public class AuthService {
                     user.getDisplayName());
         }
         UUID orgId = chosen.getOrganization().getId();
+        if (skipMfa) {
+            return signedIn(user, chosen);
+        }
         if (user.isTotpEnabled()) {
             return AuthResult.mfa(jwt.issuePending(user.getEmail(), orgId, PENDING_TTL), orgId,
                     chosen.getRole().name(), user.getDisplayName());
@@ -185,6 +202,9 @@ public class AuthService {
     /** Re-checks the second factor for an action that needs a fresh confirmation, such as signing. Same replay rules as sign-in. */
     @Transactional(noRollbackFor = UnauthorizedException.class)
     public void confirmSecondFactor(String email, String code) {
+        if (skipMfa) {
+            return;
+        }
         AppUser user = require(email);
         if (!user.isTotpEnabled()) {
             throw new UnauthorizedException("Set up a second factor first");

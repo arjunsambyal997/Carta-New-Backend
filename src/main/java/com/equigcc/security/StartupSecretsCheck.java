@@ -32,6 +32,9 @@ public class StartupSecretsCheck {
                 && (DEV_JWT_SECRET.equals(jwtSecret) || DEV_ENCRYPTION_KEY.equals(encryptionKey))) {
             throw new IllegalStateException("Refusing to run in prod with the development JWT secret or encryption key");
         }
+        if (env.acceptsProfiles(Profiles.of("prod")) && env.getProperty("equigcc.dev.skip-mfa", Boolean.class, false)) {
+            throw new IllegalStateException("Refusing to run in prod with equigcc.dev.skip-mfa on: authenticator codes would not be checked");
+        }
         if (env.acceptsProfiles(Profiles.of("prod")) && !org.springframework.util.StringUtils.hasText(env.getProperty("spring.mail.host"))) {
             throw new IllegalStateException("Refusing to run in prod without spring.mail.host: password reset emails could not be delivered");
         }
