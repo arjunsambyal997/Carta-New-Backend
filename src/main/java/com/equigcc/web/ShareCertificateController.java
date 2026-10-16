@@ -40,12 +40,14 @@ public class ShareCertificateController {
     private final String verificationBaseUrl;
     private final com.equigcc.service.CertificatePdfService pdfService;
     private final com.equigcc.service.NoticeService notices;
+    private final com.equigcc.service.ApprovalService approvals;
 
     public ShareCertificateController(com.equigcc.service.CertificatePdfService pdfService,
                                       CertificateIssuanceService issuanceService,
                                       CapTableService capTableService,
                                       WaterfallService waterfallService,
                                       com.equigcc.service.NoticeService notices,
+                                      com.equigcc.service.ApprovalService approvals,
                                       @Value("${equigcc.certificates.verification-base-url}") String verificationBaseUrl) {
         this.issuanceService = issuanceService;
         this.capTableService = capTableService;
@@ -53,6 +55,7 @@ public class ShareCertificateController {
         this.verificationBaseUrl = verificationBaseUrl;
         this.pdfService = pdfService;
         this.notices = notices;
+        this.approvals = approvals;
     }
 
     @Operation(summary = "Issue a new share certificate",
@@ -61,9 +64,13 @@ public class ShareCertificateController {
     @PostMapping("/organizations/{orgId}/certificates")
     @PreAuthorize("hasAnyRole('FOUNDER','CORPORATE_SECRETARY') and @orgAccess.canAccess(authentication, #orgId) "
             + "and @orgAccess.mfaVerified(authentication)")
-    public ResponseEntity<CertificateResponse> issue(@PathVariable UUID orgId,
-                                                     @Valid @RequestBody IssueCertificateRequest req,
-                                                     Authentication auth) {
+    public ResponseEntity<Object> issue(@PathVariable UUID orgId,
+                                        @Valid @RequestBody IssueCertificateRequest req,
+                                        Authentication auth) {
+        if (approvals.needsApproval(orgId, auth.getName())) {
+            return ResponseEntity.accepted().body(com.equigcc.web.dto.ApprovalViews.Change.from(
+                    approvals.propose(orgId, com.equigcc.domain.PendingChange.Kind.ISSUE_CERTIFICATE, req, auth.getName())));
+        }
         ShareIssuance issued = issuanceService.issue(new IssueCertificateCommand(
                 orgId,
                 req.shareholderId(),
