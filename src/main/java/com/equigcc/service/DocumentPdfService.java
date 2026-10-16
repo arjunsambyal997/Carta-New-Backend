@@ -61,6 +61,14 @@ public class DocumentPdfService {
                             long fullyDilutedShares, BigDecimal issuedPct, BigDecimal fullyDilutedPct, BigDecimal votes, BigDecimal votingPct) {
     }
 
+    public record OptionGrant(String certificateNo, String className, String currency, BigDecimal strikePrice, long granted, long vested, long exercised,
+                              long exercisable, long unvested, LocalDate startDate, int cliffMonths, int vestingMonths, LocalDate cliffDate,
+                              LocalDate fullyVestedDate, LocalDate nextVestDate) {
+    }
+
+    public record OptionStatement(String orgEn, String orgAr, String licence, Party holder, LocalDate asOf, List<OptionGrant> grants) {
+    }
+
     private static final Color INK = new Color(0x0f, 0x17, 0x2a);
     private static final Color MUTED = new Color(0x64, 0x74, 0x8b);
     private static final Color GREEN = new Color(0x04, 0x78, 0x57);
@@ -193,6 +201,49 @@ public class DocumentPdfService {
             doc.add(new Paragraph("This statement reflects the share register on the date shown. It is not a certificate of title; "
                     + "use the numbered share certificates, which carry a verification QR code.", f.small));
             doc.add(rtl("يعكس هذا الكشف سجل الأسهم في التاريخ المذكور وليس سند ملكية؛ يُرجع إلى شهادات الأسهم المرقمة التي تحمل رمز تحقق QR.", f.small));
+        });
+    }
+
+    public byte[] optionStatement(OptionStatement s) {
+        return build("Option statement", s.orgEn(), (doc, f) -> {
+            title(doc, f, s.orgEn(), s.orgAr(), s.licence(), "Option statement", "كشف خيارات الأسهم");
+            long granted = s.grants().stream().mapToLong(OptionGrant::granted).sum();
+            long exercised = s.grants().stream().mapToLong(OptionGrant::exercised).sum();
+            long exercisable = s.grants().stream().mapToLong(OptionGrant::exercisable).sum();
+            long unvested = s.grants().stream().mapToLong(OptionGrant::unvested).sum();
+            kv(doc, f, List.of(
+                    kv("Holder\nالحامل", party(s.holder())),
+                    kv("As of\nبتاريخ", s.asOf().toString()),
+                    kv("Options granted\nالخيارات الممنوحة", String.format(Locale.ROOT, "%,d", granted)),
+                    kv("Exercised\nتمت ممارستها", String.format(Locale.ROOT, "%,d", exercised)),
+                    kv("Vested, can exercise now\nمستحقة ويمكن ممارستها الآن", String.format(Locale.ROOT, "%,d", exercisable)),
+                    kv("Not yet vested\nغير مستحقة بعد", String.format(Locale.ROOT, "%,d", unvested))));
+            doc.add(space(f));
+            doc.add(new Paragraph("Grants / المنح", f.h2));
+            var t = new PdfPTable(new float[]{2.6f, 1.7f, 1.3f, 1.3f, 1.5f, 1.6f, 1.5f});
+            t.setWidthPercentage(100);
+            head(t, f, "Certificate\nالشهادة", "Strike\nسعر الممارسة", "Granted\nممنوحة", "Vested\nمستحقة", "Exercised\nممارسة", "Can exercise\nقابلة للممارسة", "Unvested\nغير مستحقة");
+            if (s.grants().isEmpty()) {
+                none(t, f, 7);
+            }
+            for (var g : s.grants()) {
+                cell(t, f, g.certificateNo() + "\n" + g.className(), false);
+                cell(t, f, g.currency() + " " + n(g.strikePrice()), true);
+                cell(t, f, String.format(Locale.ROOT, "%,d", g.granted()), true);
+                cell(t, f, String.format(Locale.ROOT, "%,d", g.vested()), true);
+                cell(t, f, String.format(Locale.ROOT, "%,d", g.exercised()), true);
+                cell(t, f, String.format(Locale.ROOT, "%,d", g.exercisable()), true);
+                cell(t, f, String.format(Locale.ROOT, "%,d", g.unvested()), true);
+                var schedule = cellOf(f.small, "Vesting starts " + g.startDate() + "  |  cliff " + g.cliffMonths() + " of " + g.vestingMonths() + " months (" + g.cliffDate()
+                        + ")  |  fully vested " + g.fullyVestedDate() + (g.nextVestDate() == null ? "" : "  |  next vest " + g.nextVestDate()));
+                schedule.setColspan(7);
+                t.addCell(schedule);
+            }
+            doc.add(t);
+            doc.add(space(f));
+            doc.add(new Paragraph("Options vest monthly after the cliff. Vested options can be exercised into shares by contacting the company; the register then retires "
+                    + "the option certificate and issues a share certificate. This statement is information only and is not an offer or tax advice.", f.small));
+            doc.add(rtl("تستحق الخيارات شهريًا بعد فترة الاستحقاق الأولى. يمكن ممارسة الخيارات المستحقة وتحويلها إلى أسهم بالتواصل مع الشركة، وعندها يلغي السجل شهادة الخيار ويصدر شهادة أسهم. هذا الكشف للعلم فقط وليس عرضًا ولا استشارة ضريبية.", f.small));
         });
     }
 

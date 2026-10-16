@@ -55,6 +55,22 @@ public class DocumentsController {
     public ResponseEntity<byte[]> statement(@PathVariable UUID orgId, @PathVariable UUID shareholderId,
                                             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf,
                                             Authentication auth) {
+        ownOnly(auth, shareholderId);
+        return pdf(documents.statement(orgId, shareholderId, asOf, auth.getName()));
+    }
+
+    @Operation(summary = "A holder's option grants with vested, exercised and unvested counts as of a date. Shareholders can fetch only their own")
+    @GetMapping(value = "/option-statement/{shareholderId}", produces = "application/pdf")
+    @PreAuthorize(STAFF_OR_HOLDER)
+    public ResponseEntity<byte[]> optionStatement(@PathVariable UUID orgId, @PathVariable UUID shareholderId,
+                                                  @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOf,
+                                                  Authentication auth) {
+        ownOnly(auth, shareholderId);
+        return pdf(documents.optionStatement(orgId, shareholderId, asOf, auth.getName()));
+    }
+
+    /** A shareholder account may only fetch its own paperwork; to everyone else the holder simply does not exist. */
+    private static void ownOnly(Authentication auth, UUID shareholderId) {
         boolean holder = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_SHAREHOLDER"));
         if (holder) {
             var me = (AuthenticatedUser) auth.getPrincipal();
@@ -62,7 +78,6 @@ public class DocumentsController {
                 throw new NotFoundException("Shareholder " + shareholderId + " not found");
             }
         }
-        return pdf(documents.statement(orgId, shareholderId, asOf, auth.getName()));
     }
 
     private static ResponseEntity<byte[]> pdf(DocumentsService.Pdf p) {

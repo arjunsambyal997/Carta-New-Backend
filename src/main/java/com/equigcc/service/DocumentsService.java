@@ -34,19 +34,21 @@ public class DocumentsService {
     private final ShareIssuanceRepository issuances;
     private final ShareholderRepository shareholders;
     private final CapTableService capTables;
+    private final VestingService vesting;
     private final DocumentPdfService pdf;
     private final AuditService audit;
     private final Clock clock;
 
     public DocumentsService(OrganizationRepository organizations, ResolutionService resolutions, SignatureService signatures,
                             ShareIssuanceRepository issuances, ShareholderRepository shareholders, CapTableService capTables,
-                            DocumentPdfService pdf, AuditService audit, Clock clock) {
+                            VestingService vesting, DocumentPdfService pdf, AuditService audit, Clock clock) {
         this.organizations = organizations;
         this.resolutions = resolutions;
         this.signatures = signatures;
         this.issuances = issuances;
         this.shareholders = shareholders;
         this.capTables = capTables;
+        this.vesting = vesting;
         this.pdf = pdf;
         this.audit = audit;
         this.clock = clock;
@@ -113,6 +115,22 @@ public class DocumentsService {
                 pos == null ? BigDecimal.ZERO : pos.votingPower(), pos == null ? BigDecimal.ZERO : pos.votingPct()));
         audit.record(orgId, "DocumentPdf", shareholderId, AuditAction.CREATE, "generated shareholder statement for " + holder.getFullNameEn() + " as of " + day, user);
         return new Pdf(bytes, "statement-" + day + ".pdf");
+    }
+
+    @Transactional
+    public Pdf optionStatement(UUID orgId, UUID shareholderId, LocalDate asOf, String user) {
+        Organization org = org(orgId);
+        Shareholder holder = shareholders.findByIdAndOrganizationId(shareholderId, orgId)
+                .orElseThrow(() -> new NotFoundException("Shareholder " + shareholderId + " not found"));
+        LocalDate day = asOf == null ? LocalDate.now(clock.withZone(ZoneOffset.UTC)) : asOf;
+        var grants = vesting.list(orgId, day).stream().filter(g -> g.shareholderId().equals(shareholderId))
+                .map(g -> new DocumentPdfService.OptionGrant(g.certificateNo(), g.shareClassName(), g.currency().name(), g.strikePrice(), g.granted(), g.vested(),
+                        g.exercised(), g.exercisable(), g.unvested(), g.startDate(), g.cliffMonths(), g.vestingMonths(), g.cliffDate(), g.fullyVestedDate(), g.nextVestDate()))
+                .toList();
+        byte[] bytes = pdf.optionStatement(new DocumentPdfService.OptionStatement(org.getLegalNameEn(), org.getLegalNameAr(), org.getCommercialLicenseNo(),
+                party(holder), day, grants));
+        audit.record(orgId, "DocumentPdf", shareholderId, AuditAction.CREATE, "generated option statement for " + holder.getFullNameEn() + " as of " + day, user);
+        return new Pdf(bytes, "options-" + day + ".pdf");
     }
 
     private Organization org(UUID orgId) {
