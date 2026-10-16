@@ -94,8 +94,9 @@ public class ShareCertificateController {
     @GetMapping("/organizations/{orgId}/cap-table")
     @PreAuthorize("hasAnyRole('FOUNDER','CORPORATE_SECRETARY','BOARD_MEMBER','LEGAL_AUDITOR') "
             + "and @orgAccess.canAccess(authentication, #orgId)")
-    public CapTable capTable(@PathVariable UUID orgId) {
-        return capTableService.calculate(orgId);
+    public CapTable capTable(@PathVariable UUID orgId,
+                             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate asOf) {
+        return asOf == null ? capTableService.calculate(orgId) : capTableService.calculateAsOf(orgId, asOf);
     }
 
     @Operation(summary = "Exit waterfall: proceeds per share class and shareholder for a given exit value")
