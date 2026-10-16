@@ -66,15 +66,19 @@ public class CapTableService {
     }
 
     CapTable computeAsOf(UUID organizationId, List<ShareIssuance> all, java.time.LocalDate day) {
-        var retired = CertificateChain.retiredOn(all);
-        List<ShareIssuance> rows = all.stream()
-                .filter(i -> !i.getDateIssued().isAfter(day))
-                .filter(i -> i.getStatus() == com.equigcc.domain.IssuanceStatus.ISSUED || retired.get(i.getId()).isAfter(day))
-                .toList();
-        CapTable t = compute(organizationId, rows, i -> i.getInstrumentType() == com.equigcc.domain.InstrumentType.SHARES);
+        CapTable t = compute(organizationId, activeAsOf(all, day), i -> i.getInstrumentType() == com.equigcc.domain.InstrumentType.SHARES);
         Instant endOfDay = day.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().minusSeconds(1);
         return new CapTable(t.organizationId(), endOfDay, t.totalIssuedShares(), t.totalFullyDilutedShares(), t.treasuryShares(),
                 t.totalVotingPower(), t.holders(), t.classes());
+    }
+
+    /** The certificates that counted at the end of {@code day}: issued by then and not yet replaced. */
+    List<ShareIssuance> activeAsOf(List<ShareIssuance> all, java.time.LocalDate day) {
+        var retired = CertificateChain.retiredOn(all);
+        return all.stream()
+                .filter(i -> !i.getDateIssued().isAfter(day))
+                .filter(i -> i.getStatus() == com.equigcc.domain.IssuanceStatus.ISSUED || retired.get(i.getId()).isAfter(day))
+                .toList();
     }
 
     /** Pure calculation over a set of ISSUED register rows; no database access. */
