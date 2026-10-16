@@ -20,6 +20,9 @@ public final class AuthDtos {
     public record LoginRequest(@NotBlank @Email String email, @NotBlank String password, UUID organizationId) {
     }
 
+    public record SwitchOrganizationRequest(@NotNull UUID organizationId) {
+    }
+
     public record MfaVerifyRequest(@NotBlank String mfaToken, @NotBlank String code) {
     }
 

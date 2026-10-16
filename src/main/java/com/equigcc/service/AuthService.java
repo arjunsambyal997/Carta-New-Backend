@@ -94,6 +94,14 @@ public class AuthService {
         if (users.findByEmail(cmd.email()).isPresent()) {
             throw new BusinessRuleException("An account with this email already exists");
         }
+        var org = createOrganization(cmd);
+
+        AppUser user = newUser(cmd.email(), cmd.displayName(), cmd.password());
+        addMembership(user, org, Role.FOUNDER, null);
+        return login(cmd.email(), cmd.password(), org.getId());
+    }
+
+    private Organization createOrganization(SignupCommand cmd) {
         if (organizations.existsByCertificatePrefixIgnoreCase(cmd.certificatePrefix())) {
             throw new BusinessRuleException("That certificate prefix is already used by another organization");
         }
@@ -104,11 +112,44 @@ public class AuthService {
         org.setCommercialLicenseNo(cmd.commercialLicenseNo());
         org.setBaseCurrency(cmd.baseCurrency());
         org.setCertificatePrefix(cmd.certificatePrefix().toUpperCase());
-        org = organizations.save(org);
+        return organizations.save(org);
+    }
 
-        AppUser user = newUser(cmd.email(), cmd.displayName(), cmd.password());
+    /** Every organization this account belongs to, for the company switcher. */
+    @Transactional(readOnly = true)
+    public List<AuthResult.OrgChoice> organizationsOf(String email) {
+        AppUser user = require(email);
+        return memberships.findByUser(user.getId()).stream()
+                .map(m -> new AuthResult.OrgChoice(m.getOrganization().getId(), m.getOrganization().getLegalNameEn(), m.getRole().name()))
+                .sorted(java.util.Comparator.comparing(AuthResult.OrgChoice::name, String.CASE_INSENSITIVE_ORDER))
+                .toList();
+    }
+
+    /**
+     * Moves an already verified session to another organization the account belongs to, without signing in again.
+     * Only a session that has passed the second factor may do this, so it can never be used to skip it.
+     */
+    @Transactional
+    public AuthResult switchOrganization(String email, UUID organizationId, boolean mfaVerified) {
+        if (!mfaVerified) {
+            throw new UnauthorizedException("Finish signing in first");
+        }
+        AppUser user = require(email);
+        Membership m = memberships.findByUserIdAndOrganizationId(user.getId(), organizationId)
+                .orElseThrow(() -> new UnauthorizedException("No access to that organization"));
+        return signedIn(user, m);
+    }
+
+    /** A signed-in person starts another company under the same login and becomes its founder. */
+    @Transactional
+    public AuthResult addOrganization(String email, boolean mfaVerified, SignupCommand cmd) {
+        if (!mfaVerified) {
+            throw new UnauthorizedException("Finish signing in first");
+        }
+        AppUser user = require(email);
+        var org = createOrganization(cmd);
         addMembership(user, org, Role.FOUNDER, null);
-        return login(cmd.email(), cmd.password(), org.getId());
+        return signedIn(user, memberships.findByUserIdAndOrganizationId(user.getId(), org.getId()).orElseThrow());
     }
 
     @Transactional(noRollbackFor = UnauthorizedException.class)
