@@ -1,12 +1,11 @@
 name: Dependency vulnerability scan
 
-# Weekly and on pom changes. Kept apart from ci.yml so a newly published CVE never blocks an unrelated PR.
+# Weekly and on demand. Kept apart from ci.yml, and not run on pull requests, so a newly published CVE (or an
+# NVD download that fails without an API key) never blocks an unrelated PR.
 on:
   schedule:
     - cron: '0 3 * * 1'
   workflow_dispatch:
-  pull_request:
-    paths: ['pom.xml']
 
 jobs:
   owasp-dependency-check:
