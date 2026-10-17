@@ -48,6 +48,10 @@ equigcc:
   certificates:
     verification-base-url: ${CERT_VERIFY_URL:http://localhost:3000/verify/}
 
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
