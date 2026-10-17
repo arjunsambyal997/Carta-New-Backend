@@ -1,0 +1,25 @@
+name: Dependency vulnerability scan
+
+# Weekly and on pom changes. Kept apart from ci.yml so a newly published CVE never blocks an unrelated PR.
+on:
+  schedule:
+    - cron: '0 3 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths: ['pom.xml']
+
+jobs:
+  owasp-dependency-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      # An NVD API key (repo secret NVD_API_KEY) makes the database download minutes instead of hours.
+      - name: OWASP dependency-check (fail on CVSS >= 7)
+        run: >
+          ./mvnw -B org.owasp:dependency-check-maven:check
+          -DfailBuildOnCVSS=7 -DnvdApiKey=${{ secrets.NVD_API_KEY }}
