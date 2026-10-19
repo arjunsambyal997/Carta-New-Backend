@@ -71,6 +71,13 @@ class ResolutionServiceTest {
     }
 
     @Test
+    void twoThirdsNeedsAtLeastTwoThirdsOfDecidedVotes() {
+        assertThat(tally(ResolutionThreshold.TWO_THIRDS, v("667", VoteChoice.FOR), v("333", VoteChoice.AGAINST)).wouldPass()).isTrue();
+        assertThat(tally(ResolutionThreshold.TWO_THIRDS, v("666", VoteChoice.FOR), v("334", VoteChoice.AGAINST)).wouldPass()).isFalse();
+        assertThat(tally(ResolutionThreshold.TWO_THIRDS, v("600", VoteChoice.FOR), v("300", VoteChoice.AGAINST)).wouldPass()).isTrue();
+    }
+
+    @Test
     void abstentionsCountForQuorumButNotForTheMajority() {
         var t = tally(ResolutionThreshold.ORDINARY, v("10", VoteChoice.FOR), v("5", VoteChoice.AGAINST), v("500", VoteChoice.ABSTAIN));
         assertThat(t.participationPct()).isEqualByComparingTo("51.50");

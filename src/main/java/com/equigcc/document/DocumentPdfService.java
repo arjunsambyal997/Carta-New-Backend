@@ -107,7 +107,7 @@ public class DocumentPdfService {
             doc.add(space(f));
             kv(doc, f, List.of(
                     kv("Result\nالنتيجة", "PASSED".equals(m.result()) ? "Passed\nتمت الموافقة" : "Rejected\nمرفوض"),
-                    kv("Majority required\nالأغلبية المطلوبة", "SPECIAL".equals(m.threshold()) ? "Special, 75% or more\nخاصة، 75% فأكثر" : "Ordinary, more than 50%\nعادية، أكثر من 50%"),
+                    kv("Majority required\nالأغلبية المطلوبة", "SPECIAL".equals(m.threshold()) ? "Special, 75% or more\nخاصة، 75% فأكثر" : "TWO_THIRDS".equals(m.threshold()) ? "Two-thirds or more\nثلثا الأصوات فأكثر" : "Ordinary, more than 50%\nعادية، أكثر من 50%"),
                     kv("Quorum required\nالنصاب المطلوب", pct(m.quorumPct()) + (m.quorumMet() ? "  (reached / تحقق)" : "  (not reached / لم يتحقق)")),
                     kv("Participation\nالمشاركة", pct(m.participationPct())),
                     kv("Votes\nالأصوات", "For / مع: " + n(m.forWeight()) + "    Against / ضد: " + n(m.againstWeight()) + "    Abstain / امتناع: " + n(m.abstainWeight())),
