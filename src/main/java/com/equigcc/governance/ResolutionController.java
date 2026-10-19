@@ -33,10 +33,13 @@ public class ResolutionController {
     private final ResolutionService service;
 
     private final com.equigcc.notice.NoticeService notices;
+    private final com.equigcc.webhook.WebhookService webhooks;
 
-    public ResolutionController(ResolutionService service, com.equigcc.notice.NoticeService notices) {
+    public ResolutionController(ResolutionService service, com.equigcc.notice.NoticeService notices,
+                              com.equigcc.webhook.WebhookService webhooks) {
         this.service = service;
         this.notices = notices;
+        this.webhooks = webhooks;
     }
 
     @PostMapping
@@ -69,6 +72,7 @@ public class ResolutionController {
     public ResolutionViews.Resolution open(@PathVariable UUID orgId, @PathVariable UUID id, Authentication auth) {
         BoardResolution r = service.open(orgId, id, auth.getName());
         notices.resolutionOpened(orgId, id);
+        webhooks.publish(orgId, com.equigcc.webhook.WebhookEvent.RESOLUTION_OPENED, java.util.Map.of("resolutionId", id.toString(), "title", r.getTitle()));
         return ResolutionViews.Resolution.from(r, service.tallyOf(r));
     }
 
@@ -85,6 +89,8 @@ public class ResolutionController {
     public ResolutionViews.Resolution close(@PathVariable UUID orgId, @PathVariable UUID id, Authentication auth) {
         BoardResolution r = service.close(orgId, id, auth.getName());
         notices.resolutionClosed(orgId, id);
+        webhooks.publish(orgId, com.equigcc.webhook.WebhookEvent.RESOLUTION_CLOSED, java.util.Map.of("resolutionId", id.toString(), "title", r.getTitle(),
+                "status", String.valueOf(r.getStatus())));
         return ResolutionViews.Resolution.from(r, service.tallyOf(r));
     }
 

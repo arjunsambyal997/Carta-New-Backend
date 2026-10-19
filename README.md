@@ -26,6 +26,8 @@ services and controller live together. New code goes into the feature it belongs
 | `vault` | Document vault with content hashing and type checks |
 | `notice` | Email notices: vote opened, deadline reminder, certificate issued |
 | `portal` | Shareholder portal summary |
+| `apikey` | Read-only API keys for reporting and BI tools (`X-API-Key`) |
+| `webhook` | Signed, retried outbound webhooks for register events |
 | `audit` | Per-organization hash-chained audit trail |
 | `auth` | Users, memberships and roles, JWT, TOTP, sessions and refresh tokens, password reset |
 | `config` | Spring configuration: security chain, rate limiting, request ids, OpenAPI, clock, startup secret checks |
@@ -115,6 +117,34 @@ A rule is a pre-agreed conversion: on a trigger event (founder death or incapaci
 ## Document vault
 
 `POST .../vault` (multipart) stores AoA, notary receipts, agreements and similar as PDF, PNG, JPEG, DOCX or text up to 10 MB. The type is decided from the file's own bytes, the stored file name always gets the matching extension, a SHA-256 is recorded and re-checked on every download, downloads are `attachment` with `nosniff` and a sandbox CSP, and uploads are audited. There is no delete.
+
+## Integrations: API keys and webhooks
+
+Founders manage both under an organization. Neither can bypass MFA-protected writes.
+
+**API keys** (`/organizations/{orgId}/api-keys`). A key looks like `eqk_<8>_<40>`, is shown once, and only its SHA-256 is stored.
+Send it as `X-API-Key`. It acts as a legal auditor of that one organization and can only issue `GET` and `HEAD` requests;
+anything else is refused with 403. Up to 10 active keys per organization; revoke at any time.
+
+**Webhooks** (`/organizations/{orgId}/webhooks`, `GET /webhook-events` lists the catalogue). Events: `certificate.issued`,
+`transfer.recorded`, `buyback.recorded`, `resolution.opened`, `resolution.closed`, plus `ping` for the Test button. Each
+delivery is a JSON envelope `{id, type, createdAt, organizationId, data}` sent by `POST` with:
+
+- `X-EquiGCC-Event` and `X-EquiGCC-Delivery` headers
+- `X-EquiGCC-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>">`, keyed with the endpoint's `whsec_` secret
+  (shown once). Verify the signature and reject timestamps older than a few minutes.
+
+Events are written to a queue in the same transaction as the change, then sent by a scheduler. A non-2xx answer or
+timeout is retried after 1 min, 5 min, 30 min, 2 h and 12 h, then marked failed; failed deliveries can be retried by hand.
+Targets must be `https` and resolve to public addresses (checked again at send time; redirects are not followed).
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `WEBHOOKS_ENABLED` | `true` | Turns queueing and sending off |
+| `WEBHOOKS_POLL_MS` | `15000` | How often the queue is polled |
+| `WEBHOOKS_ALLOW_INSECURE` | `false` | Local testing only: allows `http://` and private addresses |
+
+`scripts/integrations-smoke-test.py` exercises both against a running app (start it with the two testing settings above).
 
 ## Audit trail
 
