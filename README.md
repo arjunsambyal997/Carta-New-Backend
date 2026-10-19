@@ -274,7 +274,7 @@ Sign-in sessions live on the server. `POST /api/v1/auth/refresh` swaps a refresh
 
 Shareholder portal: invite a person with the role `SHAREHOLDER` linked to their holder record (Members page). `GET /api/v1/portal/summary` returns only their own holdings, certificates and open votes; they can vote, download their own certificates and sign them. Staff and shareholders sign resolutions and certificates with `POST /api/v1/organizations/{orgId}/signatures`, which needs a fresh authenticator code (a code already used to sign in cannot be used again, so wait for the next one). A signature records the signer, a SHA-256 of the document and the time; it shows as no longer valid if the document changes. It is an internal attestation, not a qualified e-signature under UAE or KSA law. `scripts/portal-signing-sessions-smoke-test.py` runs all of this against a live app (about 90 seconds).
 
-Deploying on a server, with HTTPS and daily backups: see `docs/DEPLOYMENT.md`.
+Deploying on a server (Oracle VM + Cloudflare, blue-green releases, encrypted off-site backups): see `docs/DEPLOYMENT.md`. Shipping a release, telling clients ahead of a maintenance window, rolling back and restoring: `docs/RELEASE_RUNBOOK.md`.
 
 Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (base64, 32 bytes), `ACCESS_TOKEN_TTL` (default 15 minutes), `REFRESH_TOKEN_TTL` (14 days), `CERT_VERIFY_URL`, `NOTICES_ENABLED`, `RATE_LIMIT_*` (see `docs/DEPLOYMENT.md`).
 

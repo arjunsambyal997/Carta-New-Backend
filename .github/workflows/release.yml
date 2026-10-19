@@ -1,0 +1,127 @@
+name: Release
+
+# Push to main: test, then publish an image tagged main and sha-<commit> (deployable by hand, never automatically).
+# Push a tag vX.Y.Z: test, publish the image tagged vX.Y.Z, then deploy it to production after a reviewer approves
+#   the "production" environment. The image is built once and never rebuilt for production.
+# Run manually with a version: redeploys an image that already exists, e.g. to go back to an older release.
+#
+# Needs, in Settings > Environments > production (see docs/RELEASE_RUNBOOK.md, "One-time setup"):
+#   secrets DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY, DEPLOY_KNOWN_HOSTS
+#   variable PRODUCTION_URL (https://app.example.com), and required reviewers.
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Image tag to deploy (e.g. v1.3.0). It must already exist in the registry.
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - name: Run tests
+        run: ./mvnw -B verify
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=ref,event=tag
+            type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
+            type=sha,prefix=sha-
+      # Arm for the Oracle Ampere server, amd64 for everything else.
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: image
+    # Runs for tags, and for a manual run (where test and image are skipped on purpose).
+    if: >-
+      always() &&
+      ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') && needs.image.result == 'success') ||
+       github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read
+    env:
+      VERSION: ${{ inputs.version || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Deploy scripts come from the release being deployed, so an old version brings its own scripts.
+          ref: ${{ inputs.version || github.ref }}
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy && chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          printf 'Host target\n  HostName %s\n  User %s\n  IdentityFile ~/.ssh/id_deploy\n  StrictHostKeyChecking yes\n' \
+            "${{ secrets.DEPLOY_HOST }}" "${{ secrets.DEPLOY_USER }}" > ~/.ssh/config
+
+      - name: Copy deploy scripts
+        # Never overwrites what only lives on the server: .env, state, backups, certificates, TLS choice.
+        run: >
+          rsync -rlptv --exclude .env --exclude 'state/' --exclude 'backups/' --exclude 'certs/'
+          --exclude 'tls.d/*.caddy' --exclude 'test/' deploy/ target:/opt/sijill/
+
+      - name: Deploy (blue-green)
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # VERSION goes into a remote command line: allow tag characters only.
+          [[ "$VERSION" =~ ^[A-Za-z0-9._-]+$ ]] || { echo "::error::bad version $VERSION"; exit 1; }
+          # The job's own token can pull this repo's image; it expires when the job ends. Sent on stdin, not argv.
+          printf '%s' "$TOKEN" | ssh target "docker login ghcr.io -u '${{ github.actor }}' --password-stdin" >/dev/null
+          # shellcheck disable=SC2029  # expanding VERSION locally is intended
+          ssh target "/opt/sijill/deploy.sh backend '$VERSION'"
+
+      - name: Sign the server out of the registry
+        if: always()
+        run: ssh target 'docker logout ghcr.io' || true

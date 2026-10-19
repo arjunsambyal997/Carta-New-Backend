@@ -1,0 +1,27 @@
+# One colour (blue or green) of the frontend. deploy.sh runs it as project sijill-frontend-<colour> with
+# state/frontend-<colour>.env supplying COLOR and FRONTEND_IMAGE. Do not start it by hand.
+name: sijill-frontend-${COLOR:?COLOR is set by deploy.sh}
+
+services:
+  frontend:
+    image: ${FRONTEND_IMAGE:?FRONTEND_IMAGE is set by deploy.sh}
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOSTNAME: 0.0.0.0
+    mem_limit: ${FRONTEND_MEM_LIMIT:-768m}
+    stop_grace_period: 20s
+    networks:
+      sijill:
+        aliases:
+          - frontend-${COLOR}
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+networks:
+  sijill:
+    external: true

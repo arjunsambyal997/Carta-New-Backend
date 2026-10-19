@@ -1,0 +1,5 @@
+# Rename to origin.caddy to serve a Cloudflare Origin CA certificate instead of Let's Encrypt.
+# Create it in Cloudflare: SSL/TLS > Origin Server > Create certificate (15 years), save the two files as
+# deploy/certs/origin.pem and deploy/certs/origin.key, chmod 600, then set SSL/TLS mode to "Full (strict)".
+# Cloudflare must stay in proxied (orange cloud) mode: browsers do not trust this certificate directly.
+tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin.key
