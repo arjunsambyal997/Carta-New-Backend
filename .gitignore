@@ -4,3 +4,4 @@ target/
 .vscode/
 __pycache__/
 *.pyc
+scripts/.seed-credentials.txt

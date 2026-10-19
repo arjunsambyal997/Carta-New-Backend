@@ -1,6 +1,6 @@
-# EquiGCC Platform
+# Sijill Platform
 
-Spring Boot 3.3 / Java 21 backend for the EquiGCC digital share register: multi-class cap table, share
+Spring Boot 3.3 / Java 21 backend for the Sijill digital share register: multi-class cap table, share
 certificates, board governance, beneficial-ownership (UBO) reporting and a shareholder portal for UAE (Mainland,
 ADGM, DIFC) and KSA entities. The web app lives in the separate `Carta-New-Frontend` repository and talks only to
 this API.

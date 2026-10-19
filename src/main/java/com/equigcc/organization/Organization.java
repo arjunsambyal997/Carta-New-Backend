@@ -50,6 +50,9 @@ public class Organization extends BaseEntity {
     @Column(name = "require_approval", nullable = false)
     private boolean requireApproval;
 
+    @Column(name = "logo_updated_at")
+    private java.time.Instant logoUpdatedAt;
+
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ShareClass> shareClasses = new ArrayList<>();
 
@@ -61,6 +64,8 @@ public class Organization extends BaseEntity {
         return "%s-%06d".formatted(certificatePrefix, lastCertificateSeq);
     }
 
+    public java.time.Instant getLogoUpdatedAt() { return logoUpdatedAt; }
+    public void setLogoUpdatedAt(java.time.Instant at) { this.logoUpdatedAt = at; }
     public boolean isRequireApproval() { return requireApproval; }
     public void setRequireApproval(boolean requireApproval) { this.requireApproval = requireApproval; }
     public String getLegalNameEn() { return legalNameEn; }
