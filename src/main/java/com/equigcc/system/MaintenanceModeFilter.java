@@ -44,7 +44,7 @@ public class MaintenanceModeFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
+        String path = com.equigcc.config.RequestPaths.of(request);
         return SAFE.contains(request.getMethod()) || path.startsWith("/api/v1/system/")
                 || !path.startsWith("/api/");
     }

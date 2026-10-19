@@ -65,13 +65,13 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        return !enabled || !request.getRequestURI().startsWith("/api/");
+        return !enabled || !RequestPaths.of(request).startsWith("/api/");
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        boolean sensitive = SENSITIVE.contains(request.getRequestURI());
+        boolean sensitive = SENSITIVE.contains(RequestPaths.of(request));
         int limit = sensitive ? authPerMinute : apiPerMinute;
         long retryAfter = sensitive ? authStore.hit("auth:" + client(request), limit) : apiStore.hit("api:" + client(request), limit);
         if (retryAfter > 0) {
