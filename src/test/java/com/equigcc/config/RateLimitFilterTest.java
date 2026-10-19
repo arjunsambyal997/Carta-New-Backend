@@ -64,4 +64,23 @@ class RateLimitFilterTest {
         call(proxied, "/api/v1/auth/login", "9.9.9.9", "5.5.5.5");
         assertThat(call(proxied, "/api/v1/auth/login", "9.9.9.9", "6.6.6.6").getStatus()).isEqualTo(200);
     }
+
+    @Test
+    void sensitiveCallsShareOneCountAcrossInstancesWhenTheStoreIsShared() throws Exception {
+        var shared = new MemoryRateLimitStore(Clock.fixed(NOW, ZoneOffset.UTC));
+        var a = new RateLimitFilter(true, 2, 100, false, new MemoryRateLimitStore(Clock.fixed(NOW, ZoneOffset.UTC)), shared);
+        var b = new RateLimitFilter(true, 2, 100, false, new MemoryRateLimitStore(Clock.fixed(NOW, ZoneOffset.UTC)), shared);
+        assertThat(call(a, "/api/v1/auth/login", "1.1.1.1", null).getStatus()).isEqualTo(200);
+        assertThat(call(b, "/api/v1/auth/login", "1.1.1.1", null).getStatus()).isEqualTo(200);
+        assertThat(call(a, "/api/v1/auth/login", "1.1.1.1", null).getStatus()).isEqualTo(429);
+        assertThat(call(b, "/api/v1/auth/login", "1.1.1.1", null).getStatus()).isEqualTo(429);
+    }
+
+    @Test
+    void databaseStoreLetsRequestsThroughWhenTheDatabaseFails() {
+        var jdbc = org.mockito.Mockito.mock(org.springframework.jdbc.core.JdbcTemplate.class);
+        org.mockito.Mockito.when(jdbc.queryForObject(org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.<org.springframework.jdbc.core.RowMapper<long[]>>any(), org.mockito.ArgumentMatchers.<Object[]>any()))
+                .thenThrow(new org.springframework.dao.DataAccessResourceFailureException("down"));
+        assertThat(new JdbcRateLimitStore(jdbc, Clock.fixed(NOW, ZoneOffset.UTC)).hit("k", 1)).isZero();
+    }
 }

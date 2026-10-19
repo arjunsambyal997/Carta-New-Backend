@@ -56,6 +56,7 @@ Database changes apply by themselves on start (Flyway). Take a backup first: `do
 | `RATE_LIMIT_AUTH_PER_MINUTE` | `30` | Sign-in, sign-up, code, password and refresh calls per client per minute. |
 | `RATE_LIMIT_API_PER_MINUTE` | `600` | All other API calls per client per minute. |
 | `RATE_LIMIT_TRUST_FORWARDED` | `false` | `true` behind a proxy that sets `X-Forwarded-For` (the production stack sets it). Never `true` when the backend is reachable directly. |
+| `RATE_LIMIT_STORE` | `memory` | `database` makes sign-in style limits shared by every backend instance (needed once you run two for blue-green or scale-out). The general API limit always counts per process. |
 | `NOTICES_ENABLED` | `true` | Email notices for votes and certificates. |
 
 Rate limits are counted in each backend process. If you run more than one backend copy, each counts for itself.
