@@ -1,9 +1,9 @@
 package com.equigcc.web;
 
-import com.equigcc.service.BusinessRuleException;
-import com.equigcc.service.IssuanceRejectedException;
-import com.equigcc.service.NotFoundException;
-import com.equigcc.service.UnauthorizedException;
+import com.equigcc.certificate.IssuanceRejectedException;
+import com.equigcc.common.BusinessRuleException;
+import com.equigcc.common.NotFoundException;
+import com.equigcc.common.UnauthorizedException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;

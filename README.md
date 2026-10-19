@@ -1,19 +1,51 @@
-# EquiGCC Platform (backend scaffold)
+# EquiGCC Platform
 
-Spring Boot 3.3 / Java 21 backend for the EquiGCC digital share register: multi-class cap table
-and share certificate issuance for UAE (Mainland, ADGM, DIFC) and KSA entities.
+Spring Boot 3.3 / Java 21 backend for the EquiGCC digital share register: multi-class cap table, share
+certificates, board governance, beneficial-ownership (UBO) reporting and a shareholder portal for UAE (Mainland,
+ADGM, DIFC) and KSA entities. The web app lives in the separate `Carta-New-Frontend` repository and talks only to
+this API.
 
-## What's here
+## Package map
 
-| Area | Files |
+Packages under `com.equigcc` are organised by feature, not by layer: a feature's entities, repositories, DTOs,
+services and controller live together. New code goes into the feature it belongs to; do not add `entity`, `dto`,
+`service` or `util` packages. `PackageStructureTest` fails the build if one appears.
+
+| Package | Responsibility |
 |---|---|
-| Build | `pom.xml`: web, validation, data-jpa, security, flyway (+ PostgreSQL module), postgresql, jjwt 0.12, springdoc |
-| Schema | `src/main/resources/db/migration/V1__init_share_register.sql` (Flyway; Hibernate runs in `validate` mode) |
-| Entities | `domain/`: `Organization`, `ShareClass`, `Shareholder`, `ShareIssuance` + enums, `BaseEntity` (UUID id, `@Version`, audit timestamps) |
-| Cap table | `service/CapTableService.java` → `CapTable` record |
-| Issuance | `service/CertificateIssuanceService.java`, `service/CertificateHasher.java` (SHA-256) |
-| API | `web/ShareCertificateController.java` |
-| Security | `security/`: HS256 JWT filter, roles, per-organization tenant check, TOTP (`amr`) check |
+| `organization` | Organizations (companies), jurisdictions, first-run setup, share-class and shareholder endpoints, member invites |
+| `captable` | Share classes, shareholders, the cap table and its CSV export, exit waterfall, register search |
+| `certificate` | Share certificates: issuance, SHA-256 record hash, PDF, public verification |
+| `register` | Register tools: CSV import of shareholders and issuances, transfers, buy-backs |
+| `equity` | Option vesting and exercise, funding-round simulator |
+| `governance` | Board resolutions, thresholds, voting, tally |
+| `signature` | Internal e-signature attestations on resolutions and certificates |
+| `ownership` | Ownership links between holders (who owns whom) |
+| `ubo` | Look-through beneficial-owner calculation and its CSV/PDF export |
+| `succession` | Succession rules (convert or transfer on a trigger) |
+| `vault` | Document vault with content hashing and type checks |
+| `notice` | Email notices: vote opened, deadline reminder, certificate issued |
+| `portal` | Shareholder portal summary |
+| `audit` | Per-organization hash-chained audit trail |
+| `auth` | Users, memberships and roles, JWT, TOTP, sessions and refresh tokens, password reset |
+| `config` | Spring configuration: security chain, rate limiting, request ids, OpenAPI, clock, startup secret checks |
+| `web` | Global error handling |
+| `common` | Small shared helpers: base entity, business-rule exceptions, CSV parsing |
+
+Tests mirror the package they cover (`src/test/java/com/equigcc/<feature>`).
+
+## Build, run, test
+
+```bash
+./mvnw test        # unit and web-slice tests (no database needed)
+./mvnw verify      # also writes the coverage report to target/site/jacoco
+```
+
+Swagger UI is at `/swagger-ui.html` and the OpenAPI document at `/v3/api-docs`. Every endpoint is also in the
+Postman collection under `postman/` (import both files; the Log in request stores the tokens for the rest).
+Every response carries an `X-Request-Id` header, and the same id appears in the log lines for that request.
+CI (`.github/workflows`) runs the tests, builds the jar and the Docker image, and validates the compose files; a
+weekly dependency scan runs OWASP dependency-check.
 
 ## API
 
@@ -218,4 +250,4 @@ Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (ba
 
 ## Not built yet (from the PRD)
 
-Redis rate limiting, token refresh, e-signature integration, official UBO filing formats.
+Shared (Redis) rate limiting, qualified e-signature integration, official UBO filing formats.
