@@ -34,12 +34,14 @@ public class ShareCertificateController {
     private final String verificationBaseUrl;
     private final com.equigcc.certificate.CertificatePdfService pdfService;
     private final com.equigcc.notice.NoticeService notices;
+    private final com.equigcc.webhook.WebhookService webhooks;
 
     public ShareCertificateController(com.equigcc.certificate.CertificatePdfService pdfService,
                                       CertificateIssuanceService issuanceService,
                                       CapTableService capTableService,
                                       WaterfallService waterfallService,
                                       com.equigcc.notice.NoticeService notices,
+                                      com.equigcc.webhook.WebhookService webhooks,
                                       @Value("${equigcc.certificates.verification-base-url}") String verificationBaseUrl) {
         this.issuanceService = issuanceService;
         this.capTableService = capTableService;
@@ -47,6 +49,7 @@ public class ShareCertificateController {
         this.verificationBaseUrl = verificationBaseUrl;
         this.pdfService = pdfService;
         this.notices = notices;
+        this.webhooks = webhooks;
     }
 
     @Operation(summary = "Issue a new share certificate",
@@ -70,6 +73,8 @@ public class ShareCertificateController {
                 auth.getName()));
 
         notices.certificateIssued(orgId, issued.getCertificateNo());
+        webhooks.publish(orgId, com.equigcc.webhook.WebhookEvent.CERTIFICATE_ISSUED, java.util.Map.of("certificateNo", issued.getCertificateNo(),
+                "shareholderId", req.shareholderId().toString(), "quantity", req.quantity()));
         var location = ServletUriComponentsBuilder.fromCurrentRequest()
                 .path("/{certificateNo}")
                 .buildAndExpand(issued.getCertificateNo())

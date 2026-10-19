@@ -47,6 +47,7 @@ class ShareCertificateControllerTest {
     @MockBean CapTableService capTableService;
     @MockBean WaterfallService waterfallService;
     @MockBean com.equigcc.notice.NoticeService notices;
+    @MockBean com.equigcc.webhook.WebhookService webhooks;
     @MockBean com.equigcc.certificate.CertificatePdfService pdfService;
 
     private final String body = """

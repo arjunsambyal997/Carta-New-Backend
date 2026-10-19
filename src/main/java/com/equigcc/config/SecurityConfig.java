@@ -17,8 +17,13 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService,
-                                           org.springframework.beans.factory.ObjectProvider<com.equigcc.auth.SessionService> sessions) throws Exception {
+                                           org.springframework.beans.factory.ObjectProvider<com.equigcc.auth.SessionService> sessions,
+                                           org.springframework.beans.factory.ObjectProvider<com.equigcc.apikey.ApiKeyService> apiKeys) throws Exception {
         var sessionService = sessions.getIfAvailable();
+        var apiKeyService = apiKeys.getIfAvailable();
+        if (apiKeyService != null) {
+            http.addFilterBefore(new com.equigcc.apikey.ApiKeyAuthenticationFilter(apiKeyService), UsernamePasswordAuthenticationFilter.class);
+        }
         return http
                 .csrf(AbstractHttpConfigurer::disable) // stateless bearer-token API
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
