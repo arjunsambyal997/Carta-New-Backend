@@ -22,6 +22,17 @@ spring:
     enabled: true
     locations: classpath:db/migration
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health   # nothing else is exposed
+  endpoint:
+    health:
+      probes:
+        enabled: true   # /actuator/health/liveness and /readiness
+      show-details: never
+
 equigcc:
   security:
     # HS256 signing secret, min 32 bytes. Override via env in every real environment.
@@ -48,6 +59,10 @@ equigcc:
     auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:30}
     api-per-minute: ${RATE_LIMIT_API_PER_MINUTE:600}
     trust-forwarded: ${RATE_LIMIT_TRUST_FORWARDED:false}
+  system:
+    version: ${APP_VERSION:dev}
+    # Operator token for scheduling maintenance and flipping flags. Empty disables those endpoints.
+    admin-token: ${SYSTEM_ADMIN_TOKEN:}
   notices:
     enabled: ${NOTICES_ENABLED:true}
   password-reset:
