@@ -38,6 +38,11 @@ equigcc:
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:3000}
   mail:
     from: ${MAIL_FROM:no-reply@equigcc.local}
+  webhooks:
+    enabled: ${WEBHOOKS_ENABLED:true}
+    # Local testing only: permits http:// and private addresses as webhook targets.
+    allow-insecure: ${WEBHOOKS_ALLOW_INSECURE:false}
+    poll-ms: ${WEBHOOKS_POLL_MS:15000}
   rate-limit:
     enabled: ${RATE_LIMIT_ENABLED:true}
     auth-per-minute: ${RATE_LIMIT_AUTH_PER_MINUTE:30}
@@ -50,6 +55,10 @@ equigcc:
     max-requests-per-hour: 3
   certificates:
     verification-base-url: ${CERT_VERIFY_URL:http://localhost:3000/verify/}
+
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"
 
 springdoc:
   swagger-ui:

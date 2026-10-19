@@ -1,19 +1,53 @@
-# EquiGCC Platform (backend scaffold)
+# EquiGCC Platform
 
-Spring Boot 3.3 / Java 21 backend for the EquiGCC digital share register: multi-class cap table
-and share certificate issuance for UAE (Mainland, ADGM, DIFC) and KSA entities.
+Spring Boot 3.3 / Java 21 backend for the EquiGCC digital share register: multi-class cap table, share
+certificates, board governance, beneficial-ownership (UBO) reporting and a shareholder portal for UAE (Mainland,
+ADGM, DIFC) and KSA entities. The web app lives in the separate `Carta-New-Frontend` repository and talks only to
+this API.
 
-## What's here
+## Package map
 
-| Area | Files |
+Packages under `com.equigcc` are organised by feature, not by layer: a feature's entities, repositories, DTOs,
+services and controller live together. New code goes into the feature it belongs to; do not add `entity`, `dto`,
+`service` or `util` packages. `PackageStructureTest` fails the build if one appears.
+
+| Package | Responsibility |
 |---|---|
-| Build | `pom.xml`: web, validation, data-jpa, security, flyway (+ PostgreSQL module), postgresql, jjwt 0.12, springdoc |
-| Schema | `src/main/resources/db/migration/V1__init_share_register.sql` (Flyway; Hibernate runs in `validate` mode) |
-| Entities | `domain/`: `Organization`, `ShareClass`, `Shareholder`, `ShareIssuance` + enums, `BaseEntity` (UUID id, `@Version`, audit timestamps) |
-| Cap table | `service/CapTableService.java` → `CapTable` record |
-| Issuance | `service/CertificateIssuanceService.java`, `service/CertificateHasher.java` (SHA-256) |
-| API | `web/ShareCertificateController.java` |
-| Security | `security/`: HS256 JWT filter, roles, per-organization tenant check, TOTP (`amr`) check |
+| `organization` | Organizations (companies), jurisdictions, first-run setup, share-class and shareholder endpoints, member invites |
+| `captable` | Share classes, shareholders, the cap table and its CSV export, exit waterfall, register search |
+| `certificate` | Share certificates: issuance, SHA-256 record hash, PDF, public verification |
+| `register` | Register tools: CSV import of shareholders and issuances, transfers, buy-backs |
+| `equity` | Option vesting and exercise, funding-round simulator |
+| `governance` | Board resolutions, thresholds, voting, tally |
+| `signature` | Internal e-signature attestations on resolutions and certificates |
+| `ownership` | Ownership links between holders (who owns whom) |
+| `ubo` | Look-through beneficial-owner calculation and its CSV/PDF export |
+| `succession` | Succession rules (convert or transfer on a trigger) |
+| `vault` | Document vault with content hashing and type checks |
+| `notice` | Email notices: vote opened, deadline reminder, certificate issued |
+| `portal` | Shareholder portal summary |
+| `apikey` | Read-only API keys for reporting and BI tools (`X-API-Key`) |
+| `webhook` | Signed, retried outbound webhooks for register events |
+| `audit` | Per-organization hash-chained audit trail |
+| `auth` | Users, memberships and roles, JWT, TOTP, sessions and refresh tokens, password reset |
+| `config` | Spring configuration: security chain, rate limiting, request ids, OpenAPI, clock, startup secret checks |
+| `web` | Global error handling |
+| `common` | Small shared helpers: base entity, business-rule exceptions, CSV parsing |
+
+Tests mirror the package they cover (`src/test/java/com/equigcc/<feature>`).
+
+## Build, run, test
+
+```bash
+./mvnw test        # unit and web-slice tests (no database needed)
+./mvnw verify      # also writes the coverage report to target/site/jacoco
+```
+
+Swagger UI is at `/swagger-ui.html` and the OpenAPI document at `/v3/api-docs`. Every endpoint is also in the
+Postman collection under `postman/` (import both files; the Log in request stores the tokens for the rest).
+Every response carries an `X-Request-Id` header, and the same id appears in the log lines for that request.
+CI (`.github/workflows`) runs the tests, builds the jar and the Docker image, and validates the compose files; a
+weekly dependency scan runs OWASP dependency-check.
 
 ## API
 
@@ -83,6 +117,34 @@ A rule is a pre-agreed conversion: on a trigger event (founder death or incapaci
 ## Document vault
 
 `POST .../vault` (multipart) stores AoA, notary receipts, agreements and similar as PDF, PNG, JPEG, DOCX or text up to 10 MB. The type is decided from the file's own bytes, the stored file name always gets the matching extension, a SHA-256 is recorded and re-checked on every download, downloads are `attachment` with `nosniff` and a sandbox CSP, and uploads are audited. There is no delete.
+
+## Integrations: API keys and webhooks
+
+Founders manage both under an organization. Neither can bypass MFA-protected writes.
+
+**API keys** (`/organizations/{orgId}/api-keys`). A key looks like `eqk_<8>_<40>`, is shown once, and only its SHA-256 is stored.
+Send it as `X-API-Key`. It acts as a legal auditor of that one organization and can only issue `GET` and `HEAD` requests;
+anything else is refused with 403. Up to 10 active keys per organization; revoke at any time.
+
+**Webhooks** (`/organizations/{orgId}/webhooks`, `GET /webhook-events` lists the catalogue). Events: `certificate.issued`,
+`transfer.recorded`, `buyback.recorded`, `resolution.opened`, `resolution.closed`, plus `ping` for the Test button. Each
+delivery is a JSON envelope `{id, type, createdAt, organizationId, data}` sent by `POST` with:
+
+- `X-EquiGCC-Event` and `X-EquiGCC-Delivery` headers
+- `X-EquiGCC-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>">`, keyed with the endpoint's `whsec_` secret
+  (shown once). Verify the signature and reject timestamps older than a few minutes.
+
+Events are written to a queue in the same transaction as the change, then sent by a scheduler. A non-2xx answer or
+timeout is retried after 1 min, 5 min, 30 min, 2 h and 12 h, then marked failed; failed deliveries can be retried by hand.
+Targets must be `https` and resolve to public addresses (checked again at send time; redirects are not followed).
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `WEBHOOKS_ENABLED` | `true` | Turns queueing and sending off |
+| `WEBHOOKS_POLL_MS` | `15000` | How often the queue is polled |
+| `WEBHOOKS_ALLOW_INSECURE` | `false` | Local testing only: allows `http://` and private addresses |
+
+`scripts/integrations-smoke-test.py` exercises both against a running app (start it with the two testing settings above).
 
 ## Audit trail
 
@@ -218,4 +280,4 @@ Env vars: `DB_URL`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, `ENCRYPTION_KEY` (ba
 
 ## Not built yet (from the PRD)
 
-Redis rate limiting, token refresh, e-signature integration, official UBO filing formats.
+Shared (Redis) rate limiting, qualified e-signature integration, official UBO filing formats.
