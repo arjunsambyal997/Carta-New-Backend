@@ -45,11 +45,13 @@ public class RegisterToolsController {
     private final String verificationBaseUrl;
     private final com.equigcc.notice.NoticeService notices;
     private final com.equigcc.webhook.WebhookService webhooks;
+    private final com.equigcc.approval.ApprovalService approvals;
 
-    public RegisterToolsController(com.equigcc.notice.NoticeService notices, com.equigcc.webhook.WebhookService webhooks, ImportService imports, TransferService transfers, SearchService search, CapTableExportService exports,
+    public RegisterToolsController(com.equigcc.notice.NoticeService notices, com.equigcc.webhook.WebhookService webhooks, com.equigcc.approval.ApprovalService approvals, ImportService imports, TransferService transfers, SearchService search, CapTableExportService exports,
                                    @Value("${equigcc.certificates.verification-base-url}") String verificationBaseUrl) {
         this.notices = notices;
         this.webhooks = webhooks;
+        this.approvals = approvals;
         this.imports = imports;
         this.transfers = transfers;
         this.search = search;
@@ -106,27 +108,36 @@ public class RegisterToolsController {
 
     @Operation(summary = "Transfer shares from one holder to another; certificates are retired and reissued")
     @PostMapping("/transfers")
-    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize(WRITE)
-    public List<CertificateResponse> transfer(@PathVariable UUID orgId, @Valid @RequestBody RegisterToolsDtos.TransferRequest r, Authentication auth) {
+    public ResponseEntity<Object> transfer(@PathVariable UUID orgId, @Valid @RequestBody RegisterToolsDtos.TransferRequest r, Authentication auth) {
+        if (approvals.needsApproval(orgId, auth.getName())) {
+            return waiting(approvals.propose(orgId, com.equigcc.approval.PendingChange.Kind.TRANSFER, r, auth.getName()));
+        }
         var created = transfers.transfer(orgId, new TransferService.Transfer(r.fromShareholderId(), r.toShareholderId(), r.shareClassId(), r.quantity(),
                 r.pricePerShare(), r.date(), r.resolutionId(), r.reference()), auth.getName());
         created.stream().filter(i -> i.getShareholder().getId().equals(r.toShareholderId())).forEach(i -> notices.certificateIssued(orgId, i.getCertificateNo()));
         webhooks.publish(orgId, com.equigcc.webhook.WebhookEvent.TRANSFER_RECORDED, java.util.Map.of("fromShareholderId", r.fromShareholderId().toString(),
                 "toShareholderId", r.toShareholderId().toString(), "quantity", r.quantity()));
-        return created.stream().map(i -> CertificateResponse.from(i, verificationBaseUrl)).toList();
+        return ResponseEntity.status(HttpStatus.CREATED).body(created.stream().map(i -> CertificateResponse.from(i, verificationBaseUrl)).toList());
     }
 
     @Operation(summary = "Buy shares back from a holder into treasury")
     @PostMapping("/buybacks")
-    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize(WRITE)
-    public List<CertificateResponse> buyBack(@PathVariable UUID orgId, @Valid @RequestBody RegisterToolsDtos.BuyBackRequest r, Authentication auth) {
+    public ResponseEntity<Object> buyBack(@PathVariable UUID orgId, @Valid @RequestBody RegisterToolsDtos.BuyBackRequest r, Authentication auth) {
+        if (approvals.needsApproval(orgId, auth.getName())) {
+            return waiting(approvals.propose(orgId, com.equigcc.approval.PendingChange.Kind.BUY_BACK, r, auth.getName()));
+        }
         var created = transfers.buyBack(orgId, new TransferService.BuyBack(r.fromShareholderId(), r.shareClassId(), r.quantity(), r.pricePerShare(),
                 r.date(), r.resolutionId(), r.reference()), auth.getName());
         webhooks.publish(orgId, com.equigcc.webhook.WebhookEvent.BUYBACK_RECORDED, java.util.Map.of("fromShareholderId", r.fromShareholderId().toString(),
                 "quantity", r.quantity()));
-        return created.stream().map(i -> CertificateResponse.from(i, verificationBaseUrl)).toList();
+        return ResponseEntity.status(HttpStatus.CREATED).body(created.stream().map(i -> CertificateResponse.from(i, verificationBaseUrl)).toList());
+    }
+
+    /** 202: the change was recorded and waits for a second person. */
+    private static ResponseEntity<Object> waiting(com.equigcc.approval.PendingChange p) {
+        return ResponseEntity.accepted().body(com.equigcc.approval.ApprovalViews.Change.from(p));
     }
 
     private static byte[] bytes(MultipartFile f) throws IOException {

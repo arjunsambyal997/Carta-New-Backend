@@ -32,6 +32,9 @@ equigcc:
     refresh-token-ttl: ${REFRESH_TOKEN_TTL:P14D}
     max-failed-logins: 5
     lockout: PT15M
+  dev:
+    # Development and test only. Skips authenticator codes; the app will not start in the prod profile with this on.
+    skip-mfa: ${DEV_SKIP_MFA:false}
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:3000}
   mail:
     from: ${MAIL_FROM:no-reply@equigcc.local}

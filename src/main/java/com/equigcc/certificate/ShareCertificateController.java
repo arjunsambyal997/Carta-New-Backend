@@ -35,6 +35,7 @@ public class ShareCertificateController {
     private final com.equigcc.certificate.CertificatePdfService pdfService;
     private final com.equigcc.notice.NoticeService notices;
     private final com.equigcc.webhook.WebhookService webhooks;
+    private final com.equigcc.approval.ApprovalService approvals;
 
     public ShareCertificateController(com.equigcc.certificate.CertificatePdfService pdfService,
                                       CertificateIssuanceService issuanceService,
@@ -42,6 +43,7 @@ public class ShareCertificateController {
                                       WaterfallService waterfallService,
                                       com.equigcc.notice.NoticeService notices,
                                       com.equigcc.webhook.WebhookService webhooks,
+                                      com.equigcc.approval.ApprovalService approvals,
                                       @Value("${equigcc.certificates.verification-base-url}") String verificationBaseUrl) {
         this.issuanceService = issuanceService;
         this.capTableService = capTableService;
@@ -50,6 +52,7 @@ public class ShareCertificateController {
         this.pdfService = pdfService;
         this.notices = notices;
         this.webhooks = webhooks;
+        this.approvals = approvals;
     }
 
     @Operation(summary = "Issue a new share certificate",
@@ -58,9 +61,13 @@ public class ShareCertificateController {
     @PostMapping("/organizations/{orgId}/certificates")
     @PreAuthorize("hasAnyRole('FOUNDER','CORPORATE_SECRETARY') and @orgAccess.canAccess(authentication, #orgId) "
             + "and @orgAccess.mfaVerified(authentication)")
-    public ResponseEntity<CertificateResponse> issue(@PathVariable UUID orgId,
-                                                     @Valid @RequestBody IssueCertificateRequest req,
-                                                     Authentication auth) {
+    public ResponseEntity<Object> issue(@PathVariable UUID orgId,
+                                        @Valid @RequestBody IssueCertificateRequest req,
+                                        Authentication auth) {
+        if (approvals.needsApproval(orgId, auth.getName())) {
+            return ResponseEntity.accepted().body(com.equigcc.approval.ApprovalViews.Change.from(
+                    approvals.propose(orgId, com.equigcc.approval.PendingChange.Kind.ISSUE_CERTIFICATE, req, auth.getName())));
+        }
         ShareIssuance issued = issuanceService.issue(new IssueCertificateCommand(
                 orgId,
                 req.shareholderId(),
@@ -86,8 +93,9 @@ public class ShareCertificateController {
     @GetMapping("/organizations/{orgId}/cap-table")
     @PreAuthorize("hasAnyRole('FOUNDER','CORPORATE_SECRETARY','BOARD_MEMBER','LEGAL_AUDITOR') "
             + "and @orgAccess.canAccess(authentication, #orgId)")
-    public CapTable capTable(@PathVariable UUID orgId) {
-        return capTableService.calculate(orgId);
+    public CapTable capTable(@PathVariable UUID orgId,
+                             @RequestParam(required = false) @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate asOf) {
+        return asOf == null ? capTableService.calculate(orgId) : capTableService.calculateAsOf(orgId, asOf);
     }
 
     @Operation(summary = "Exit waterfall: proceeds per share class and shareholder for a given exit value")

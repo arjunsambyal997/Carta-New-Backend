@@ -85,6 +85,26 @@ public class AuthController {
         auth.changePassword(a.getName(), r.currentPassword(), r.newPassword(), ((AuthenticatedUser) a.getPrincipal()).sessionId());
     }
 
+    /** The companies this account belongs to. */
+    @GetMapping("/organizations")
+    public java.util.List<com.equigcc.auth.AuthResult.OrgChoice> organizations(Authentication a) {
+        return auth.organizationsOf(a.getName());
+    }
+
+    /** Opens a session for another of the account's companies, without signing in again. */
+    @PostMapping("/switch-organization")
+    public AuthResult switchOrganization(@Valid @RequestBody AuthDtos.SwitchOrganizationRequest r, Authentication a) {
+        return auth.switchOrganization(a.getName(), r.organizationId(), ((AuthenticatedUser) a.getPrincipal()).mfaVerified());
+    }
+
+    /** Starts another company under this login; the caller becomes its founder. */
+    @PostMapping("/organizations")
+    public AuthResult addOrganization(@Valid @RequestBody AuthDtos.OrganizationInput o, Authentication a) {
+        return auth.addOrganization(a.getName(), ((AuthenticatedUser) a.getPrincipal()).mfaVerified(),
+                new AuthService.SignupCommand(a.getName(), null, null, o.legalNameEn(), o.legalNameAr(), o.jurisdiction(),
+                        o.commercialLicenseNo(), o.baseCurrency(), o.certificatePrefix()));
+    }
+
     @GetMapping("/me")
     public AuthDtos.Me me(Authentication a) {
         var me = (AuthenticatedUser) a.getPrincipal();

@@ -6,6 +6,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,12 +36,14 @@ public class OptionsAndRoundsController {
     private final VestingService vesting;
     private final String verificationBaseUrl;
     private final com.equigcc.notice.NoticeService notices;
+    private final com.equigcc.approval.ApprovalService approvals;
 
-    public OptionsAndRoundsController(RoundSimulator rounds, VestingService vesting, com.equigcc.notice.NoticeService notices,
+    public OptionsAndRoundsController(RoundSimulator rounds, VestingService vesting, com.equigcc.notice.NoticeService notices, com.equigcc.approval.ApprovalService approvals,
                                       @Value("${equigcc.certificates.verification-base-url}") String verificationBaseUrl) {
         this.rounds = rounds;
         this.vesting = vesting;
         this.notices = notices;
+        this.approvals = approvals;
         this.verificationBaseUrl = verificationBaseUrl;
     }
 
@@ -48,7 +51,10 @@ public class OptionsAndRoundsController {
     @PostMapping("/rounds/simulate")
     @PreAuthorize(READ)
     public RoundSimulator.Result simulate(@PathVariable UUID orgId, @Valid @RequestBody OptionsAndRoundsDtos.SimulateRoundRequest r) {
-        return rounds.simulate(orgId, new RoundSimulator.Input(r.preMoney(), r.investment(), r.poolPct(), r.investorName()));
+        var convertibles = r.convertibles() == null ? java.util.List.<RoundSimulator.Convertible>of() : r.convertibles().stream()
+                .map(c -> new RoundSimulator.Convertible(c.name(), c.kind() == null ? "SAFE" : c.kind(), c.amount(), c.interestPct(), c.months(), c.capValuation(), c.discountPct()))
+                .toList();
+        return rounds.simulate(orgId, new RoundSimulator.Input(r.preMoney(), r.investment(), r.poolPct(), r.investorName(), convertibles));
     }
 
     @Operation(summary = "Option grants with vested, exercisable and unvested counts on a date (default today)")
@@ -70,11 +76,15 @@ public class OptionsAndRoundsController {
     @PostMapping("/certificates/{certificateNo}/exercise")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize(WRITE)
-    public List<CertificateResponse> exercise(@PathVariable UUID orgId, @PathVariable String certificateNo,
-                                              @Valid @RequestBody OptionsAndRoundsDtos.ExerciseRequest r, Authentication auth) {
+    public ResponseEntity<Object> exercise(@PathVariable UUID orgId, @PathVariable String certificateNo,
+                                           @Valid @RequestBody OptionsAndRoundsDtos.ExerciseRequest r, Authentication auth) {
+        if (approvals.needsApproval(orgId, auth.getName())) {
+            return ResponseEntity.accepted().body(com.equigcc.approval.ApprovalViews.Change.from(approvals.propose(orgId,
+                    com.equigcc.approval.PendingChange.Kind.EXERCISE_OPTIONS, new com.equigcc.approval.ApprovalService.ExercisePayload(certificateNo, r), auth.getName())));
+        }
         var issued = vesting.exercise(orgId, certificateNo, r.quantity(), r.shareClassId(), r.date(), auth.getName());
         issued.stream().filter(c -> c.getInstrumentType() == com.equigcc.captable.InstrumentType.SHARES)
                 .forEach(c -> notices.certificateIssued(orgId, c.getCertificateNo()));
-        return issued.stream().map(c -> CertificateResponse.from(c, verificationBaseUrl)).toList();
+        return ResponseEntity.status(HttpStatus.CREATED).body(issued.stream().map(c -> CertificateResponse.from(c, verificationBaseUrl)).toList());
     }
 }

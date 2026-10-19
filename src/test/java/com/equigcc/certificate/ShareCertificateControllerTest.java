@@ -49,6 +49,7 @@ class ShareCertificateControllerTest {
     @MockBean com.equigcc.notice.NoticeService notices;
     @MockBean com.equigcc.webhook.WebhookService webhooks;
     @MockBean com.equigcc.certificate.CertificatePdfService pdfService;
+    @MockBean com.equigcc.approval.ApprovalService approvals;
 
     private final String body = """
             {"shareholderId":"%s","shareClassId":"%s","quantity":1000,"pricePerShare":10.00}

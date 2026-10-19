@@ -47,6 +47,9 @@ public class Organization extends BaseEntity {
     @Column(name = "last_certificate_seq", nullable = false)
     private long lastCertificateSeq;
 
+    @Column(name = "require_approval", nullable = false)
+    private boolean requireApproval;
+
     @OneToMany(mappedBy = "organization", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ShareClass> shareClasses = new ArrayList<>();
 
@@ -58,6 +61,8 @@ public class Organization extends BaseEntity {
         return "%s-%06d".formatted(certificatePrefix, lastCertificateSeq);
     }
 
+    public boolean isRequireApproval() { return requireApproval; }
+    public void setRequireApproval(boolean requireApproval) { this.requireApproval = requireApproval; }
     public String getLegalNameEn() { return legalNameEn; }
     public void setLegalNameEn(String legalNameEn) { this.legalNameEn = legalNameEn; }
     public String getLegalNameAr() { return legalNameAr; }

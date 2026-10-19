@@ -158,6 +158,47 @@ class AuthServiceTest {
         return secret;
     }
 
+    // ---- several companies under one login ---------------------------------------------------
+
+    @Test
+    void theSwitcherListsEveryCompanyOfTheAccountByName() {
+        var other = UUID.randomUUID();
+        when(memberships.findByUser(user.getId())).thenReturn(List.of(membership(orgId, Role.FOUNDER), membership(other, Role.BOARD_MEMBER)));
+        var list = service.organizationsOf("fatima@alnoor.ae");
+        assertThat(list).hasSize(2);
+        assertThat(list).extracting(AuthResult.OrgChoice::role).containsExactlyInAnyOrder("FOUNDER", "BOARD_MEMBER");
+    }
+
+    @Test
+    void switchingNeedsAFullyVerifiedSessionAndAMembership() {
+        assertThatThrownBy(() -> service.switchOrganization("fatima@alnoor.ae", orgId, false))
+                .isInstanceOf(UnauthorizedException.class).hasMessageContaining("Finish signing in");
+        assertThatThrownBy(() -> service.switchOrganization("fatima@alnoor.ae", UUID.randomUUID(), true))
+                .isInstanceOf(UnauthorizedException.class).hasMessageContaining("No access");
+    }
+
+    @Test
+    void switchingGivesAFullyVerifiedTokenForTheOtherCompany() {
+        var other = UUID.randomUUID();
+        when(memberships.findByUserIdAndOrganizationId(user.getId(), other)).thenReturn(Optional.of(membership(other, Role.BOARD_MEMBER)));
+        var r = service.switchOrganization("fatima@alnoor.ae", other, true);
+        assertThat(r.status()).isEqualTo("OK");
+        assertThat(r.organizationId()).isEqualTo(other);
+        var claims = jwt.parse(r.accessToken());
+        assertThat(claims.get("roles", List.class)).containsExactly("BOARD_MEMBER");
+        assertThat(claims.get("amr", List.class)).contains("otp");
+    }
+
+    @Test
+    void addingACompanyMakesTheCallerItsFounderAndChecksThePrefix() {
+        when(organizations.existsByCertificatePrefixIgnoreCase("TAKEN")).thenReturn(true);
+        var taken = new AuthService.SignupCommand("fatima@alnoor.ae", null, null, "Second Co", null,
+                com.equigcc.organization.Jurisdiction.ADGM, "L-2", com.equigcc.captable.Currency.AED, "TAKEN");
+        assertThatThrownBy(() -> service.addOrganization("fatima@alnoor.ae", true, taken))
+                .isInstanceOf(BusinessRuleException.class).hasMessageContaining("prefix");
+        assertThatThrownBy(() -> service.addOrganization("fatima@alnoor.ae", false, taken)).isInstanceOf(UnauthorizedException.class);
+    }
+
     private Membership membership(UUID org, Role role) {
         var o = new Organization();
         o.setId(org);
