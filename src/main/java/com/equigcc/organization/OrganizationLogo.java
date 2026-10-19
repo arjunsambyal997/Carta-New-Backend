@@ -23,7 +23,7 @@ public class OrganizationLogo {
     @Column(name = "size_bytes", nullable = false)
     private int sizeBytes;
 
-    @Column(nullable = false, length = 64, columnDefinition = "char(64)")
+    @Column(nullable = false, length = 64)
     private String sha256;
 
     @Column(nullable = false)
