@@ -37,8 +37,9 @@ public class ApiExceptionHandler {
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, e.getMessage());
     }
 
-    @ExceptionHandler(DataIntegrityViolationException.class)
-    ProblemDetail conflict(DataIntegrityViolationException e) {
+    /** Hibernate's own form arrives when the clash is found at flush, outside Spring's repository translation. */
+    @ExceptionHandler({DataIntegrityViolationException.class, org.hibernate.exception.ConstraintViolationException.class})
+    ProblemDetail conflict(RuntimeException e) {
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, "That record already exists or conflicts with an existing one");
         pd.setTitle("Conflict");
         return pd;
