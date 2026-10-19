@@ -10,7 +10,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
 [ $# -ge 1 ] || die "usage: $0 <dump file under backups/> [age private key]"
 FILE="$1"
 KEY="${2:-}"
-[ -r "$FILE" ] || die "cannot read $FILE"
+# Dumps are owned by the backup container (mode 600), so only check the name here; the container reads the file.
+[ -e "$FILE" ] || die "no such file: $FILE"
 case "$(cd "$(dirname "$FILE")" && pwd)" in
   "$DEPLOY_DIR/backups") ;;
   *) die "put the dump in $DEPLOY_DIR/backups first" ;;
