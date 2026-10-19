@@ -32,6 +32,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/auth/login", "/api/v1/auth/signup", "/api/v1/auth/mfa/verify",
                                 "/api/v1/auth/password/forgot", "/api/v1/auth/password/reset", "/api/v1/auth/refresh").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/api/v1/system/**", "/actuator/health/**").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(sessionService == null ? new JwtAuthenticationFilter(jwtService) : new JwtAuthenticationFilter(jwtService, sessionService::isActive), UsernamePasswordAuthenticationFilter.class)
