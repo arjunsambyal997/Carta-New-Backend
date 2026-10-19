@@ -6,6 +6,7 @@ import com.equigcc.captable.ShareholderType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Past;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -41,6 +42,7 @@ public final class SetupDtos {
             @Size(max = 32) String nationalId,
             /* ISO 3166-1 alpha-2, e.g. AE. */
             @Size(min = 2, max = 2) String nationality,
+            @Past java.time.LocalDate dateOfBirth,
             @Size(max = 32) String taxId,
             @Size(max = 64) String registrationNo,
             @Size(max = 1000) String address,

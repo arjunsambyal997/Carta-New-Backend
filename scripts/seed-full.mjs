@@ -150,6 +150,19 @@ form.append("file", new Blob([demoLogoPng()], { type: "image/png" }), "logo.png"
 const lg = await call("PUT", `${P}/logo`, { token, form });
 log(lg.status === 200 ? "  company logo uploaded" : `  logo upload skipped (${lg.status}); this backend may predate logos`);
 
+// ---- filing deadlines ----------------------------------------------------------------------------------
+
+const comp = await call("GET", `${P}/compliance`, { token });
+if (comp.status === 200) {
+  const items = comp.data.items;
+  const open = items.find((i) => i.status !== "UP_TO_DATE" && !i.lastFiledOn);
+  log(`  filing deadlines: ${items.map((i) => `${i.key}=${i.status}`).join(", ") || "none"}`);
+  if (open && !toured) {
+    await ok("POST", `${P}/compliance/${open.key}/filings`, { token, body: { reference: "DEMO-REF-001" } });
+    log(`  demo filing recorded for ${open.key}`);
+  }
+} else log(`  filing deadlines skipped (${comp.status}); this backend may predate them`);
+
 // ---- a second company under the same login --------------------------------------------------------------
 
 const orgs = await ok("GET", "/auth/organizations", { token });

@@ -42,6 +42,10 @@ public class Shareholder extends BaseEntity {
     private String nationality;
 
     /** UAE TRN / KSA VAT or ZATCA number. */
+    /** Individuals only; the UAE LLC partners register (Decree-Law 32/2021, art. 74) lists it. */
+    @Column(name = "date_of_birth")
+    private java.time.LocalDate dateOfBirth;
+
     @Column(name = "tax_id", length = 32)
     private String taxId;
 
@@ -69,6 +73,8 @@ public class Shareholder extends BaseEntity {
     public void setNationalId(String nationalId) { this.nationalId = nationalId; }
     public String getNationality() { return nationality; }
     public void setNationality(String nationality) { this.nationality = nationality; }
+    public java.time.LocalDate getDateOfBirth() { return dateOfBirth; }
+    public void setDateOfBirth(java.time.LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
     public String getTaxId() { return taxId; }
     public void setTaxId(String taxId) { this.taxId = taxId; }
     public String getRegistrationNo() { return registrationNo; }

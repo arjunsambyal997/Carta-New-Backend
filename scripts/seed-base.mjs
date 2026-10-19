@@ -49,6 +49,8 @@ export async function seedBase(ctx, opts = {}) {
     if (holders[en]) continue;
     holders[en] = await ok("POST", `${P}/shareholders`, { token, body: {
       holderType: type, fullNameEn: en, fullNameAr: ar || undefined, nationality: nat, registrationNo: reg,
+      dateOfBirth: type === "INDIVIDUAL" ? `${1965 + (en.length * 7) % 30}-0${1 + (en.length % 9)}-1${en.length % 9}` : undefined,
+      address: type === "INDIVIDUAL" ? `Villa ${en.length}, Al Wasl Road, Dubai` : "Office 1204, Business Bay, Dubai",
       email: type === "INDIVIDUAL" ? en.toLowerCase().replace(/[^a-z]+/g, ".") + "@example.com" : undefined } });
     log(`  holder created: ${en}`);
   }
