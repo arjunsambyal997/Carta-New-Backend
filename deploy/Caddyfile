@@ -1,5 +1,21 @@
-# Caddy gets and renews the HTTPS certificate for {$DOMAIN} by itself. Ports 80 and 443 must reach this server.
+# Front door for the whole stack. Caddy terminates HTTPS, sends /api/* to the live backend colour and everything
+# else to the live frontend colour. deploy.sh switches colours by rewriting the two files under upstreams/ and
+# reloading Caddy, which is graceful: open connections finish on the old colour.
+{
+	servers {
+		# Cloudflare sits in front. Trust its edge addresses only, and take the visitor's address from
+		# CF-Connecting-IP, so {client_ip} is the real client and cannot be spoofed by a caller that bypasses Cloudflare.
+		# Ranges from https://www.cloudflare.com/ips/ (checked 2026-10); refresh if Cloudflare announces changes.
+		trusted_proxies static 173.245.48.0/20 103.21.244.0/22 103.22.200.0/22 103.31.4.0/22 141.101.64.0/18 108.162.192.0/18 190.93.240.0/20 188.114.96.0/20 197.234.240.0/22 198.41.128.0/17 162.158.0.0/15 104.16.0.0/13 104.24.0.0/14 172.64.0.0/13 131.0.72.0/22 2400:cb00::/32 2606:4700::/32 2803:f800::/32 2405:b500::/32 2405:8100::/32 2a06:98c0::/29 2c0f:f248::/32
+		client_ip_headers CF-Connecting-IP
+	}
+}
+
 {$DOMAIN} {
+	# Optional: a Cloudflare Origin CA certificate (see tls.d/origin.caddy.example). With no file here Caddy gets a
+	# Let's Encrypt certificate by itself, or an internal one when DOMAIN is localhost.
+	import /etc/caddy/tls.d/*.caddy
+
 	encode zstd gzip
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
@@ -10,5 +26,33 @@
 	request_body {
 		max_size 12MB
 	}
-	reverse_proxy frontend:3000
+
+	# Operator writes (maintenance windows, flags) are only accepted from the server itself, never from the internet,
+	# even with the right token. Use deploy/notice.sh on the server.
+	@operatorWrite {
+		path /api/v1/system/maintenance* /api/v1/system/flags/*
+		not method GET HEAD
+		not remote_ip private_ranges
+	}
+	respond @operatorWrite 404
+
+	handle /api/* {
+		import /etc/caddy/upstreams/backend.caddy
+	}
+	handle /actuator/health* {
+		import /etc/caddy/upstreams/backend.caddy
+	}
+	handle {
+		import /etc/caddy/upstreams/frontend.caddy
+	}
+
+	# Nothing healthy behind the proxy: show the bilingual maintenance page instead of a bare 502.
+	handle_errors 502 503 504 {
+		root * /srv/errors
+		rewrite * /maintenance.html
+		file_server {
+			status 503
+		}
+		header Retry-After 300
+	}
 }
