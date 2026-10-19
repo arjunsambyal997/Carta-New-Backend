@@ -1,4 +1,4 @@
-# Deploying EquiGCC on one server
+# Deploying Sijill on one server
 
 This sets up HTTPS, the app, the database and a daily backup on a single Linux server with Docker. It has been checked
 with `docker compose config` and the backup and restore scripts have been run against a real database, but the full stack

@@ -24,7 +24,7 @@ class SmtpPasswordResetMailer implements PasswordResetMailer {
         var m = new SimpleMailMessage();
         m.setFrom(from);
         m.setTo(toEmail);
-        m.setSubject("Reset your EquiGCC password / إعادة تعيين كلمة المرور");
+        m.setSubject("Reset your Sijill password / إعادة تعيين كلمة المرور");
         m.setText("Hello " + displayName + ",\n\nUse this link to choose a new password. It works once and expires in "
                 + validMinutes + " minutes:\n" + resetLink + "\n\nIf you did not ask for this, ignore this email; your password is unchanged.\n\n"
                 + "مرحبًا،\nاستخدم الرابط أعلاه لاختيار كلمة مرور جديدة. يعمل مرة واحدة وينتهي خلال " + validMinutes

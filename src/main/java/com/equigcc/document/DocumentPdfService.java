@@ -264,7 +264,7 @@ public class DocumentPdfService {
             Document doc = new Document(PageSize.A4, 48, 48, 48, 48);
             PdfWriter.getInstance(doc, out);
             doc.addTitle(subject + " - " + org);
-            doc.addCreator("EquiGCC");
+            doc.addCreator("Sijill");
             doc.open();
             BaseFont reg = BaseFont.createFont("DejaVuSans.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, regular, null);
             BaseFont bld = BaseFont.createFont("DejaVuSans-Bold.ttf", BaseFont.IDENTITY_H, BaseFont.EMBEDDED, true, bold, null);

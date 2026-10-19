@@ -18,7 +18,7 @@ public class OpenApiConfig {
     OpenAPI equigccOpenApi() {
         return new OpenAPI()
                 .info(new Info()
-                        .title("EquiGCC API")
+                        .title("Sijill API")
                         .description("Digital share register, cap table and governance for GCC companies.")
                         .version("v1"))
                 .components(new Components().addSecuritySchemes(BEARER, new SecurityScheme()

@@ -11,10 +11,13 @@ public record OrganizationView(
         Jurisdiction jurisdiction,
         String commercialLicenseNo,
         Currency baseCurrency,
-        boolean requireApproval) {
+        boolean requireApproval,
+        boolean hasLogo,
+        java.time.Instant logoUpdatedAt) {
 
     public static OrganizationView from(Organization o) {
         return new OrganizationView(o.getId(), o.getLegalNameEn(), o.getLegalNameAr(), o.getJurisdiction(),
-                o.getCommercialLicenseNo(), o.getBaseCurrency(), o.isRequireApproval());
+                o.getCommercialLicenseNo(), o.getBaseCurrency(), o.isRequireApproval(),
+                o.getLogoUpdatedAt() != null, o.getLogoUpdatedAt());
     }
 }

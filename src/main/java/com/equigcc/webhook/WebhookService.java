@@ -107,7 +107,7 @@ public class WebhookService {
     @Transactional
     public WebhookDelivery sendTest(UUID orgId, UUID endpointId) {
         WebhookEndpoint e = find(orgId, endpointId);
-        return enqueue(e, WebhookEvent.PING, Map.of("message", "This is a test event from EquiGCC."));
+        return enqueue(e, WebhookEvent.PING, Map.of("message", "This is a test event from Sijill."));
     }
 
     @Transactional
