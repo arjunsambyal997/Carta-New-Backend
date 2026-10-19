@@ -7,6 +7,7 @@ import com.equigcc.captable.ShareClassRepository;
 import com.equigcc.captable.ShareClassType;
 import com.equigcc.captable.Shareholder;
 import com.equigcc.captable.ShareholderRepository;
+import com.equigcc.captable.ShareholderType;
 import com.equigcc.common.BusinessRuleException;
 import com.equigcc.common.NotFoundException;
 import org.springframework.stereotype.Service;
@@ -68,6 +69,7 @@ public class SetupService {
         s.setPassportNo(r.passportNo());
         s.setNationalId(r.nationalId());
         s.setNationality(r.nationality() == null ? null : r.nationality().toUpperCase());
+        s.setDateOfBirth(r.holderType() == ShareholderType.INDIVIDUAL ? r.dateOfBirth() : null);
         s.setTaxId(r.taxId());
         s.setRegistrationNo(r.registrationNo());
         s.setAddress(r.address());

@@ -104,7 +104,7 @@ public class ImportService {
             }
             String id = r.getOrDefault("id_number", "");
             setup.createShareholder(orgId, new SetupDtos.ShareholderRequest(type, name, blank(r.get("name_ar")), null,
-                    type == ShareholderType.INDIVIDUAL ? blank(id) : null, blank(nat), null,
+                    type == ShareholderType.INDIVIDUAL ? blank(id) : null, blank(nat), null, null,
                     type == ShareholderType.CORPORATE ? blank(r.get("registration_no")) : null, null, blank(r.get("email"))), user);
             created++;
         }
