@@ -7,7 +7,7 @@ RUN mvn -q -B dependency:go-offline
 COPY src ./src
 RUN mvn -q -B -DskipTests package && cp target/*.jar /app.jar
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:24-jre
 RUN useradd -r -u 1001 app
 USER app
 COPY --from=build /app.jar /app.jar
