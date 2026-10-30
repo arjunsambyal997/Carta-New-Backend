@@ -71,6 +71,17 @@ public class DocumentPdfService {
     public record OptionStatement(String orgEn, String orgAr, String licence, Party holder, LocalDate asOf, List<OptionGrant> grants) {
     }
 
+    public record FilingOwner(String nameEn, String nameAr, String nationality, String documentNo, BigDecimal economicPct, BigDecimal votingPct,
+                              String qualifiesBy, String route) {
+    }
+
+    public record FilingGap(String nameEn, String nameAr, BigDecimal economicPct, BigDecimal votingPct, String reason) {
+    }
+
+    public record FilingPack(String orgEn, String orgAr, String licence, String jurisdictionEn, String jurisdictionAr, String registryEn, String registryAr,
+                             LocalDate asOf, BigDecimal thresholdPct, String currency, List<FilingOwner> owners, List<FilingGap> gaps, List<String> warnings) {
+    }
+
     private static final Color INK = new Color(0x0f, 0x17, 0x2a);
     private static final Color MUTED = new Color(0x64, 0x74, 0x8b);
     private static final Color GREEN = new Color(0x04, 0x78, 0x57);
@@ -246,6 +257,74 @@ public class DocumentPdfService {
             doc.add(new Paragraph("Options vest monthly after the cliff. Vested options can be exercised into shares by contacting the company; the register then retires "
                     + "the option certificate and issues a share certificate. This statement is information only and is not an offer or tax advice.", f.small));
             doc.add(rtl("تستحق الخيارات شهريًا بعد فترة الاستحقاق الأولى. يمكن ممارسة الخيارات المستحقة وتحويلها إلى أسهم بالتواصل مع الشركة، وعندها يلغي السجل شهادة الخيار ويصدر شهادة أسهم. هذا الكشف للعلم فقط وليس عرضًا ولا استشارة ضريبية.", f.small));
+        });
+    }
+
+    public byte[] filingPack(FilingPack p) {
+        return build("Beneficial ownership filing pack", p.orgEn(), (doc, f) -> {
+            title(doc, f, p.orgEn(), p.orgAr(), p.licence(), "Beneficial ownership filing pack", "حزمة إيداع المستفيدين الفعليين");
+            kv(doc, f, List.of(
+                    kv("Filing to\nجهة الإيداع", p.registryEn() + "\n" + p.registryAr()),
+                    kv("Jurisdiction\nالاختصاص", p.jurisdictionEn() + "\n" + p.jurisdictionAr()),
+                    kv("Company\nالشركة", p.orgEn() + (has(p.orgAr()) ? "\n" + p.orgAr() : "")),
+                    kv("Commercial licence no.\nرقم الرخصة التجارية", p.licence()),
+                    kv("Register date\nتاريخ السجل", p.asOf() + " (UTC)"),
+                    kv("Ownership threshold\nحد الملكية", pct(p.thresholdPct()) + " of economic rights or voting rights")));
+            doc.add(space(f));
+            doc.add(new Paragraph("Beneficial owners / المستفيدون الفعليون", f.h2));
+            var t = new PdfPTable(new float[]{3.2f, 1.4f, 1.8f, 1.2f, 1.2f, 1.4f, 3.6f});
+            t.setWidthPercentage(100);
+            head(t, f, "Name\nالاسم", "Nationality\nالجنسية", "ID / passport\nالهوية / الجواز", "Economic\nالاقتصادية", "Voting\nالتصويت", "Basis\nالأساس", "Route\nالمسار");
+            if (p.owners().isEmpty()) {
+                none(t, f, 7);
+            }
+            for (var o : p.owners()) {
+                cell(t, f, name(o.nameEn(), o.nameAr()), false);
+                cell(t, f, o.nationality(), false);
+                cell(t, f, o.documentNo(), false);
+                cell(t, f, pct(o.economicPct()), true);
+                cell(t, f, pct(o.votingPct()), true);
+                cell(t, f, o.qualifiesBy(), false);
+                cell(t, f, o.route(), false);
+            }
+            doc.add(t);
+            if (!p.gaps().isEmpty()) {
+                doc.add(space(f));
+                doc.add(new Paragraph("Ownership not traced to a natural person / ملكية لم تُتتبَّع إلى شخص طبيعي", f.h2));
+                var g = new PdfPTable(new float[]{4, 1.4f, 1.4f, 5});
+                g.setWidthPercentage(100);
+                head(g, f, "Company\nالشركة", "Economic\nالاقتصادية", "Voting\nالتصويت", "Reason\nالسبب");
+                for (var x : p.gaps()) {
+                    cell(g, f, name(x.nameEn(), x.nameAr()), false);
+                    cell(g, f, pct(x.economicPct()), true);
+                    cell(g, f, pct(x.votingPct()), true);
+                    cell(g, f, x.reason(), false);
+                }
+                doc.add(g);
+                doc.add(new Paragraph("Resolve these before filing: record who owns each company on the Beneficial owners page. / عالج هذه البنود قبل الإيداع.", f.small));
+            }
+            doc.add(space(f));
+            doc.add(new Paragraph("Documents usually attached / المرفقات المعتادة", f.h2));
+            for (String line : List.of(
+                    "[  ]  Certified copy of the passport or ID of each beneficial owner  /  صورة مصدقة من جواز سفر أو هوية كل مستفيد فعلي",
+                    "[  ]  Proof of residential address of each beneficial owner  /  إثبات عنوان إقامة كل مستفيد فعلي",
+                    "[  ]  Extract of the share register (cap table PDF from Sijill)  /  مستخرج من سجل الأسهم",
+                    "[  ]  Articles of association  /  عقد التأسيس أو النظام الأساسي",
+                    "[  ]  Board resolution authorising the filing, if required  /  قرار مجلس الإدارة بالتفويض بالإيداع إن لزم")) {
+                doc.add(new Paragraph(line, f.body));
+            }
+            doc.add(space(f));
+            doc.add(new Paragraph("Declaration / إقرار", f.h2));
+            doc.add(new Paragraph("I confirm that the information above is complete and correct to the best of my knowledge, and that I will notify the registry of any change within the period required by law.", f.body));
+            doc.add(rtl("أقرّ بأن المعلومات الواردة أعلاه كاملة وصحيحة بحسب علمي، وأنني سأخطر جهة التسجيل بأي تغيير خلال المدة التي يقتضيها القانون.", f.body));
+            signatureBlock(doc, f, "Authorised signatory\nالمفوض بالتوقيع", "Name and title\nالاسم والصفة");
+            for (String w : p.warnings()) {
+                doc.add(new Paragraph("Note: " + w, f.small));
+            }
+            doc.add(space(f));
+            doc.add(new Paragraph("This pack follows a generic layout with the fields these registers ask for. " + p.registryEn() + " publishes its own form and may change it; "
+                    + "check the current form and copy these answers across.", f.small));
+            doc.add(rtl("تتبع هذه الحزمة تصميمًا عامًا يضم الحقول التي تطلبها هذه السجلات. تنشر جهة التسجيل نموذجها الخاص وقد تغيّره؛ راجع النموذج الحالي وانقل الإجابات إليه.", f.small));
         });
     }
 

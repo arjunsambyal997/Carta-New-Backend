@@ -31,10 +31,12 @@ public class UboController {
 
     private final OwnershipService ownership;
     private final UboService ubo;
+    private final FilingPackService filing;
 
-    public UboController(OwnershipService ownership, UboService ubo) {
+    public UboController(OwnershipService ownership, UboService ubo, FilingPackService filing) {
         this.ownership = ownership;
         this.ubo = ubo;
+        this.filing = filing;
     }
 
     @Operation(summary = "All recorded ownership links between shareholders")
@@ -75,6 +77,20 @@ public class UboController {
     public ResponseEntity<byte[]> export(@PathVariable UUID orgId, @RequestParam String format,
                                          @RequestParam(defaultValue = "25") BigDecimal threshold, Authentication auth) {
         var out = ubo.export(orgId, threshold, format, auth.getName());
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(out.contentType()))
+                .header("Content-Disposition", "attachment; filename=\"" + out.filename() + "\"")
+                .header("X-Content-Type-Options", "nosniff")
+                .header("Cache-Control", "no-store")
+                .body(out.bytes());
+    }
+
+    @Operation(summary = "Beneficial ownership filing pack for the company's registry (PDF with declaration, or CSV); audited")
+    @GetMapping("/ubo/filing-pack")
+    @PreAuthorize(READ)
+    public ResponseEntity<byte[]> filingPack(@PathVariable UUID orgId, @RequestParam String format,
+                                             @RequestParam(defaultValue = "25") BigDecimal threshold, Authentication auth) {
+        var out = filing.export(orgId, threshold, format, auth.getName());
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(out.contentType()))
                 .header("Content-Disposition", "attachment; filename=\"" + out.filename() + "\"")

@@ -34,6 +34,7 @@ class UboControllerTest {
     @Autowired JwtService jwt;
     @MockBean OwnershipService ownership;
     @MockBean UboService ubo;
+    @MockBean FilingPackService filing;
 
     private String token(String role, boolean mfa) {
         return "Bearer " + jwt.issue("u@x.ae", List.of(role), List.of(ORG), mfa, Duration.ofMinutes(5));
@@ -49,6 +50,17 @@ class UboControllerTest {
         mvc.perform(put("/api/v1/organizations/" + ORG + "/shareholders/" + UUID.randomUUID() + "/owners")
                         .header("Authorization", token("LEGAL_AUDITOR", true)).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"owners\":[]}"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void auditorCanDownloadTheFilingPackButShareholdersCannot() throws Exception {
+        when(filing.export(eq(ORG), any(), eq("pdf"), any())).thenReturn(new UboService.Export(new byte[]{1}, "application/pdf", "ubo-filing-pack.pdf"));
+        mvc.perform(get("/api/v1/organizations/" + ORG + "/ubo/filing-pack?format=pdf").header("Authorization", token("LEGAL_AUDITOR", true)))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Cache-Control", "no-store"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"ubo-filing-pack.pdf\""));
+        mvc.perform(get("/api/v1/organizations/" + ORG + "/ubo/filing-pack?format=pdf").header("Authorization", token("SHAREHOLDER", true)))
                 .andExpect(status().isForbidden());
     }
 
