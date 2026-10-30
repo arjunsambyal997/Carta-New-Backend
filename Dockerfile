@@ -1,6 +1,6 @@
 # The build stage runs on the CI machine's own platform (bytecode is the same everywhere), so a multi-arch image for
 # the Arm production server builds at native speed. Only the small runtime stage is per platform.
-FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-21 AS build
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-26 AS build
 WORKDIR /src
 COPY pom.xml .
 RUN mvn -q -B dependency:go-offline
