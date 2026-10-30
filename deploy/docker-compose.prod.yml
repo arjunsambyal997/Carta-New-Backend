@@ -97,6 +97,8 @@ services:
       MB_DB_DBNAME: metabase
       MB_DB_USER: metabase
       MB_DB_PASS: ${METABASE_DB_PASSWORD:-}
+      # Signs Metabase's own sign-in sessions; without it anyone with database access could forge one.
+      MB_SESSION_SECRET_KEY: ${METABASE_SESSION_SECRET:-}
       MB_SITE_URL: https://${ANALYTICS_DOMAIN:-}
       MB_ANON_TRACKING_ENABLED: "false"
       MB_CHECK_FOR_UPDATES: "false"

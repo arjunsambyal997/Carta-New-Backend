@@ -23,8 +23,9 @@ On the server, in `/opt/sijill`:
 
 1. Add a DNS record for the analytics address (for example `analytics.example.com`, proxied by Cloudflare). If you
    use a Cloudflare Origin certificate, it must also cover this name.
-2. In `.env`, set `COMPOSE_PROFILES=analytics`, `ANALYTICS_DOMAIN`, and two passwords:
-   `METABASE_DB_PASSWORD` and `ANALYTICS_DB_PASSWORD` (`openssl rand -hex 24` each).
+2. In `.env`, set `COMPOSE_PROFILES=analytics`, `ANALYTICS_DOMAIN`, two passwords
+   `METABASE_DB_PASSWORD` and `ANALYTICS_DB_PASSWORD` (`openssl rand -hex 24` each), and
+   `METABASE_SESSION_SECRET` (`openssl rand -hex 32`).
 3. Create the database roles: `analytics/init-db.sh`
 4. Start Metabase and publish its site:
    `cp analytics/analytics.caddy sites.d/`

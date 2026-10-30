@@ -47,7 +47,12 @@ def api(method, path, body=None):
     try:
         with urllib.request.urlopen(req, timeout=120) as r:
             raw = r.read()
-            return json.loads(raw) if raw else None
+            if not raw:
+                return None
+            try:
+                return json.loads(raw)
+            except ValueError:  # some settings come back as bare text
+                return raw.decode()
     except urllib.error.HTTPError as e:
         sys.exit(f"{method} {path} -> {e.code}: {e.read().decode()[:500]}")
 
