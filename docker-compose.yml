@@ -26,6 +26,9 @@ services:
       DB_USER: equigcc
       DB_PASSWORD: equigcc
       PUBLIC_BASE_URL: http://localhost:3000
+      # Demo only: DEV_SKIP_MFA=true signs in without authenticator codes; RATE_LIMIT_ENABLED=false speeds up seeding.
+      DEV_SKIP_MFA: ${DEV_SKIP_MFA:-false}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
     ports:
       - "8081:8080"   # host 8081, in case 8080 is taken
 

@@ -21,7 +21,7 @@ export async function seedBase(ctx, opts = {}) {
   for (const c of await ok("GET", `${P}/share-classes`, { token })) classes[c.name] = c;
   for (const d of classDefs) {
     if (classes[d.name]) { log(`  class exists: ${d.name}`); continue; }
-    classes[d.name] = await ok("POST", `${P}/share-classes`, { token, body: d });
+    classes[d.name] = await ok("POST", `${P}/share-classes`, { token, body: { participating: false, ...d } }); // Jackson 3 rejects a missing boolean
     log(`  class created: ${d.name}`);
   }
 
