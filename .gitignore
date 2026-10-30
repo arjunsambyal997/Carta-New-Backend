@@ -12,3 +12,4 @@ deploy/state/
 deploy/backups/
 deploy/certs/
 deploy/tls.d/*.caddy
+deploy/sites.d/*.caddy
