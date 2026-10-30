@@ -73,6 +73,11 @@ equigcc:
     api-per-minute: ${RATE_LIMIT_API_PER_MINUTE:600}
     trust-forwarded: ${RATE_LIMIT_TRUST_FORWARDED:false}
     store: ${RATE_LIMIT_STORE:memory}
+  analytics:
+    # Metabase analytics dashboard (deploy/analytics). Empty disables /analytics/embed.
+    metabase-site-url: ${METABASE_SITE_URL:}
+    dashboard-id: ${METABASE_DASHBOARD_ID:0}
+    embedding-secret: ${METABASE_EMBEDDING_SECRET:}
   system:
     version: ${APP_VERSION:dev}
     # Operator token for scheduling maintenance and flipping flags. Empty disables those endpoints.

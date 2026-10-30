@@ -28,6 +28,10 @@ services:
       RATE_LIMIT_TRUST_FORWARDED: "true"
       # Two colours overlap during a deploy; sign-in limits must be shared between them.
       RATE_LIMIT_STORE: database
+      # Analytics dashboard links (docs/ANALYTICS.md). Off while METABASE_DASHBOARD_ID is unset.
+      METABASE_SITE_URL: https://${ANALYTICS_DOMAIN:-}
+      METABASE_DASHBOARD_ID: ${METABASE_DASHBOARD_ID:-0}
+      METABASE_EMBEDDING_SECRET: ${METABASE_EMBEDDING_SECRET:-}
       JAVA_TOOL_OPTIONS: ${BACKEND_JAVA_OPTS:--XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError}
     mem_limit: ${BACKEND_MEM_LIMIT:-3g}
     # Longer than spring.lifecycle.timeout-per-shutdown-phase, so in-flight requests finish before the kill.

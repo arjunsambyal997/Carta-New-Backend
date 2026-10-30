@@ -13,7 +13,7 @@ log() { printf '[%s] %s\n' "$(date -u +%H:%M:%S)" "$*"; }
 die() { log "ERROR: $*" >&2; exit 1; }
 
 [ -r "$ENV_FILE" ] || die "missing $ENV_FILE (copy .env.example and fill it in)"
-mkdir -p "$STATE_DIR" "$UPSTREAMS" "$DEPLOY_DIR/certs" "$DEPLOY_DIR/backups"
+mkdir -p "$STATE_DIR" "$UPSTREAMS" "$DEPLOY_DIR/certs" "$DEPLOY_DIR/backups" "$DEPLOY_DIR/sites.d"
 
 env_value() { # read one KEY from .env without sourcing the whole file into the shell
   sed -n "s/^$1=//p" "$ENV_FILE" | tail -n 1 | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'\$/\1/"

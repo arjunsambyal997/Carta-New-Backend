@@ -20,9 +20,11 @@ services:
       - "443:443/udp"
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      ANALYTICS_DOMAIN: ${ANALYTICS_DOMAIN:-}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./tls.d:/etc/caddy/tls.d:ro
+      - ./sites.d:/etc/caddy/sites.d:ro
       - ./certs:/etc/caddy/certs:ro
       - ./errors:/srv/errors:ro
       - ./state/upstreams:/etc/caddy/upstreams:ro
@@ -76,6 +78,39 @@ services:
       RCLONE_CONFIG_OFFSITE_NO_CHECK_BUCKET: "true"
     volumes:
       - ${BACKUP_PATH:-./backups}:/backups
+    logging: *logging
+
+  # Analytics dashboard (Metabase). Only runs with COMPOSE_PROFILES=analytics in .env; see docs/ANALYTICS.md.
+  # It keeps its own settings in the "metabase" database and reads the register through the read-only
+  # sijill_analytics role, which sees the analytics.* views and nothing else.
+  metabase:
+    image: metabase/metabase:${METABASE_VERSION:-v0.65.2.2}
+    profiles: ["analytics"]
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_HOST: db
+      MB_DB_PORT: 5432
+      MB_DB_DBNAME: metabase
+      MB_DB_USER: metabase
+      MB_DB_PASS: ${METABASE_DB_PASSWORD:-}
+      # Signs Metabase's own sign-in sessions; without it anyone with database access could forge one.
+      MB_SESSION_SECRET_KEY: ${METABASE_SESSION_SECRET:-}
+      MB_SITE_URL: https://${ANALYTICS_DOMAIN:-}
+      MB_ANON_TRACKING_ENABLED: "false"
+      MB_CHECK_FOR_UPDATES: "false"
+      # Only the app may frame the dashboard.
+      MB_EMBEDDING_APP_ORIGINS: https://${DOMAIN}
+      JAVA_TOOL_OPTIONS: -Xmx1g -XX:+ExitOnOutOfMemoryError
+    mem_limit: ${METABASE_MEM_LIMIT:-1536m}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:3000/api/health || exit 1"]
+      interval: 15s
+      start_period: 180s
+      retries: 10
     logging: *logging
 
 networks:

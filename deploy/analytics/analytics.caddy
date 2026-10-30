@@ -1,0 +1,12 @@
+# Analytics dashboard site. Enable it with:  cp analytics/analytics.caddy sites.d/ && docker compose ... restart proxy
+{$ANALYTICS_DOMAIN} {
+	import /etc/caddy/tls.d/*.caddy
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+	reverse_proxy metabase:3000
+}

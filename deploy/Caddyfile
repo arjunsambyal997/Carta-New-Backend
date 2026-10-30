@@ -11,6 +11,9 @@
 	}
 }
 
+# Optional extra sites, e.g. the analytics dashboard (copy deploy/analytics/analytics.caddy into sites.d/).
+import /etc/caddy/sites.d/*.caddy
+
 {$DOMAIN} {
 	# Optional: a Cloudflare Origin CA certificate (see tls.d/origin.caddy.example). With no file here Caddy gets a
 	# Let's Encrypt certificate by itself, or an internal one when DOMAIN is localhost.
