@@ -1,13 +1,13 @@
 # The build stage runs on the CI machine's own platform (bytecode is the same everywhere), so a multi-arch image for
 # the Arm production server builds at native speed. Only the small runtime stage is per platform.
-FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-21 AS build
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /src
 COPY pom.xml .
 RUN mvn -q -B dependency:go-offline
 COPY src ./src
 RUN mvn -q -B -DskipTests package && cp target/*.jar /app.jar
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 RUN useradd -r -u 1001 app
 USER app
 COPY --from=build /app.jar /app.jar
