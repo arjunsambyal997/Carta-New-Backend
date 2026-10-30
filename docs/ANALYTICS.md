@@ -12,7 +12,7 @@ capital raised, ownership by holder and by class, issuance over time, resolution
 3. Every question filters on `{{organization_id}}`. The dashboard is published for signed embedding with that
    filter **locked**.
 4. The app calls `GET /api/v1/organizations/{orgId}/analytics/embed`, which works for founders, secretaries, board
-   members and auditors of that company. The backend signs a 10-minute link with the company's id and the
+   members and auditors of that company. The backend signs a one-hour link (the page fetches a new one before it runs out) with the company's id and the
    embedding secret. Metabase rejects a link that has been changed or has expired.
 
 Shareholders don't get the page.

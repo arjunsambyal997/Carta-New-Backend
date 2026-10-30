@@ -26,7 +26,7 @@ public class AnalyticsEmbedService {
     public record Embed(String url, Instant expiresAt) {
     }
 
-    static final Duration TTL = Duration.ofMinutes(10);
+    static final Duration TTL = Duration.ofHours(1);
 
     private final String siteUrl;
     private final long dashboardId;
