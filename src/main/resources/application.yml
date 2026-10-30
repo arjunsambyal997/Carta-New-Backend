@@ -22,7 +22,7 @@ spring:
     properties:
       hibernate.jdbc.time_zone: UTC
   jackson:
-    generator:
+    write:
       write-bigdecimal-as-plain: true   # 1400000, not 1.4E+6
   flyway:
     enabled: true

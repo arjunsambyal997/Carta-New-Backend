@@ -12,8 +12,8 @@ import com.equigcc.config.SecurityConfig;
 import com.equigcc.organization.Organization;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -43,13 +43,13 @@ class ShareCertificateControllerTest {
 
     @Autowired MockMvc mvc;
     @Autowired JwtService jwt;
-    @MockBean CertificateIssuanceService issuanceService;
-    @MockBean CapTableService capTableService;
-    @MockBean WaterfallService waterfallService;
-    @MockBean com.equigcc.notice.NoticeService notices;
-    @MockBean com.equigcc.webhook.WebhookService webhooks;
-    @MockBean com.equigcc.certificate.CertificatePdfService pdfService;
-    @MockBean com.equigcc.approval.ApprovalService approvals;
+    @MockitoBean CertificateIssuanceService issuanceService;
+    @MockitoBean CapTableService capTableService;
+    @MockitoBean WaterfallService waterfallService;
+    @MockitoBean com.equigcc.notice.NoticeService notices;
+    @MockitoBean com.equigcc.webhook.WebhookService webhooks;
+    @MockitoBean com.equigcc.certificate.CertificatePdfService pdfService;
+    @MockitoBean com.equigcc.approval.ApprovalService approvals;
 
     private final String body = """
             {"shareholderId":"%s","shareClassId":"%s","quantity":1000,"pricePerShare":10.00}

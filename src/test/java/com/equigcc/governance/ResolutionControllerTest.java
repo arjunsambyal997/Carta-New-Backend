@@ -6,8 +6,8 @@ import com.equigcc.captable.Shareholder;
 import com.equigcc.config.SecurityConfig;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -38,9 +38,9 @@ class ResolutionControllerTest {
 
     @Autowired MockMvc mvc;
     @Autowired JwtService jwt;
-    @MockBean ResolutionService service;
-    @MockBean com.equigcc.notice.NoticeService notices;
-    @MockBean com.equigcc.webhook.WebhookService webhooks;
+    @MockitoBean ResolutionService service;
+    @MockitoBean com.equigcc.notice.NoticeService notices;
+    @MockitoBean com.equigcc.webhook.WebhookService webhooks;
 
     private static final String URL = "/api/v1/organizations/{orgId}/resolutions/{id}/votes";
 

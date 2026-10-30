@@ -6,8 +6,8 @@ import com.equigcc.config.SecurityConfig;
 import com.equigcc.ownership.OwnershipService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
@@ -32,9 +32,9 @@ class UboControllerTest {
 
     @Autowired MockMvc mvc;
     @Autowired JwtService jwt;
-    @MockBean OwnershipService ownership;
-    @MockBean UboService ubo;
-    @MockBean FilingPackService filing;
+    @MockitoBean OwnershipService ownership;
+    @MockitoBean UboService ubo;
+    @MockitoBean FilingPackService filing;
 
     private String token(String role, boolean mfa) {
         return "Bearer " + jwt.issue("u@x.ae", List.of(role), List.of(ORG), mfa, Duration.ofMinutes(5));

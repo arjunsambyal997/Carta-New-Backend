@@ -22,8 +22,8 @@ import com.equigcc.captable.ShareholderRepository;
 import com.equigcc.certificate.IssueCertificateRequest;
 import com.equigcc.equity.OptionsAndRoundsDtos;
 import com.equigcc.register.RegisterToolsDtos;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -236,7 +236,7 @@ public class ApprovalService {
     private String write(Object o) {
         try {
             return json.writeValueAsString(o);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Cannot store change", e);
         }
     }
@@ -244,7 +244,7 @@ public class ApprovalService {
     private <T> T read(PendingChange p, Class<T> type) {
         try {
             return json.readValue(p.getPayload(), type);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException("Stored change " + p.getId() + " is unreadable", e);
         }
     }
