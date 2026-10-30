@@ -200,21 +200,26 @@ public class ApprovalService {
         return switch (kind) {
             case ISSUE_CERTIFICATE -> {
                 var r = (IssueCertificateRequest) req;
-                yield "Issue " + r.quantity() + " × " + className(orgId, r.shareClassId()) + " to " + holderName(orgId, r.shareholderId());
+                yield "Issue " + count(r.quantity()) + " × " + className(orgId, r.shareClassId()) + " to " + holderName(orgId, r.shareholderId());
             }
             case TRANSFER -> {
                 var r = (RegisterToolsDtos.TransferRequest) req;
-                yield "Transfer " + r.quantity() + " × " + className(orgId, r.shareClassId()) + " from " + holderName(orgId, r.fromShareholderId()) + " to " + holderName(orgId, r.toShareholderId());
+                yield "Transfer " + count(r.quantity()) + " × " + className(orgId, r.shareClassId()) + " from " + holderName(orgId, r.fromShareholderId()) + " to " + holderName(orgId, r.toShareholderId());
             }
             case BUY_BACK -> {
                 var r = (RegisterToolsDtos.BuyBackRequest) req;
-                yield "Buy back " + r.quantity() + " × " + className(orgId, r.shareClassId()) + " from " + holderName(orgId, r.fromShareholderId());
+                yield "Buy back " + count(r.quantity()) + " × " + className(orgId, r.shareClassId()) + " from " + holderName(orgId, r.fromShareholderId());
             }
             case EXERCISE_OPTIONS -> {
                 var r = (ExercisePayload) req;
-                yield "Exercise " + r.request().quantity() + " options on certificate " + r.certificateNo();
+                yield "Exercise " + count(r.request().quantity()) + " options on certificate " + r.certificateNo();
             }
         };
+    }
+
+    /** 20000 -> "20,000", the way every other screen shows share counts. */
+    private static String count(long n) {
+        return String.format(Locale.ROOT, "%,d", n);
     }
 
     private String holderName(UUID orgId, UUID id) {

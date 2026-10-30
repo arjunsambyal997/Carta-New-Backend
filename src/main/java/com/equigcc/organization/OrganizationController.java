@@ -41,7 +41,10 @@ public class OrganizationController {
         this.auth = auth;
     }
 
+    /* Shareholder-portal logins read this too, for the company name and logo in the top bar. */
     @GetMapping
+    @PreAuthorize("hasAnyRole('FOUNDER','CORPORATE_SECRETARY','BOARD_MEMBER','LEGAL_AUDITOR','SHAREHOLDER') "
+            + "and @orgAccess.canAccess(authentication, #orgId)")
     public OrganizationView organization(@PathVariable UUID orgId) {
         return queries.organization(orgId);
     }

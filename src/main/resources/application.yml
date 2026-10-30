@@ -24,6 +24,9 @@ spring:
   jackson:
     write:
       write-bigdecimal-as-plain: true   # 1400000, not 1.4E+6
+    deserialization:
+      # Jackson 3 turned this on by default; an omitted boolean or number means false/0, as it did before Spring Boot 4.
+      fail-on-null-for-primitives: false
   flyway:
     enabled: true
     locations: classpath:db/migration
