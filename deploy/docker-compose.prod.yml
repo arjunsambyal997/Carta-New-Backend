@@ -1,63 +1,41 @@
-# Production stack on one server: HTTPS reverse proxy, frontend, backend, Postgres and a daily backup job.
-#   cp .env.example .env   (fill in every value)
-#   docker compose -f docker-compose.prod.yml --env-file .env up -d --build
-# Expects the frontend repo checked out next to this one (../../Carta-New-Frontend relative to this folder).
+# Long-lived part of the production stack: HTTPS proxy, Postgres and the backup job. The backend and frontend run as
+# separate "colour" projects (docker-compose.backend.yml / docker-compose.frontend.yml) that deploy.sh starts and stops.
+#   ./deploy.sh backend v1.2.0      first run also starts this file
+#   docker compose -p sijill -f docker-compose.prod.yml --env-file .env ps
+name: sijill
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
 services:
   proxy:
-    image: caddy:2
+    image: caddy:2-alpine
     restart: unless-stopped
     ports:
       - "80:80"
       - "443:443"
+      - "443:443/udp"
     environment:
       DOMAIN: ${DOMAIN:?set DOMAIN in .env}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./tls.d:/etc/caddy/tls.d:ro
+      - ./certs:/etc/caddy/certs:ro
+      - ./errors:/srv/errors:ro
+      - ./state/upstreams:/etc/caddy/upstreams:ro
       - caddy_data:/data
-    depends_on:
-      - frontend
-
-  frontend:
-    build:
-      context: ../../Carta-New-Frontend
-      args:
-        BACKEND_URL: http://backend:8080
-    restart: unless-stopped
-    depends_on:
-      - backend
-
-  backend:
-    build:
-      context: ..
-    restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
-    environment:
-      SPRING_PROFILES_ACTIVE: prod
-      DB_URL: jdbc:postgresql://db:5432/equigcc
-      DB_USER: equigcc
-      DB_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
-      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?set ENCRYPTION_KEY in .env}
-      PUBLIC_BASE_URL: https://${DOMAIN}
-      CERT_VERIFY_URL: https://${DOMAIN}/verify/
-      MAIL_FROM: ${MAIL_FROM:?set MAIL_FROM in .env}
-      SPRING_MAIL_HOST: ${SPRING_MAIL_HOST:?set SPRING_MAIL_HOST in .env}
-      SPRING_MAIL_PORT: ${SPRING_MAIL_PORT:-587}
-      SPRING_MAIL_USERNAME: ${SPRING_MAIL_USERNAME:-}
-      SPRING_MAIL_PASSWORD: ${SPRING_MAIL_PASSWORD:-}
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
-      # The proxy sets X-Forwarded-For, so rate limits count the real client, not the proxy.
-      RATE_LIMIT_TRUST_FORWARDED: "true"
+      - caddy_config:/config
+    logging: *logging
 
   db:
     image: postgres:16
     restart: unless-stopped
     environment:
       POSTGRES_USER: equigcc
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: equigcc
     volumes:
       - pgdata:/var/lib/postgresql/data
@@ -65,9 +43,13 @@ services:
       test: ["CMD-SHELL", "pg_isready -U equigcc"]
       interval: 5s
       retries: 20
+    # Postgres is not published on the host: only containers on the sijill network reach it.
+    shm_size: 256m
+    logging: *logging
 
   backup:
-    image: postgres:16
+    build: ./backup
+    image: sijill-backup:local
     restart: unless-stopped
     depends_on:
       db:
@@ -78,13 +60,29 @@ services:
       PGPASSWORD: ${POSTGRES_PASSWORD}
       PGDATABASE: equigcc
       BACKUP_DIR: /backups
-      RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-30}
+      BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-22}
+      LOCAL_RETENTION_DAYS: ${BACKUP_LOCAL_RETENTION_DAYS:-7}
+      AGE_RECIPIENT: ${BACKUP_AGE_RECIPIENT:-}
+      RCLONE_REMOTE: ${BACKUP_RCLONE_REMOTE:-}
+      REMOTE_DAILY_DAYS: ${BACKUP_REMOTE_DAILY_DAYS:-30}
+      REMOTE_MONTHLY_DAYS: ${BACKUP_REMOTE_MONTHLY_DAYS:-365}
+      BACKUP_PING_URL: ${BACKUP_PING_URL:-}
+      # rclone reads its remote from these, so no rclone.conf is needed. The remote is named "offsite".
+      RCLONE_CONFIG_OFFSITE_TYPE: s3
+      RCLONE_CONFIG_OFFSITE_PROVIDER: ${BACKUP_S3_PROVIDER:-Cloudflare}
+      RCLONE_CONFIG_OFFSITE_ACCESS_KEY_ID: ${BACKUP_S3_ACCESS_KEY_ID:-}
+      RCLONE_CONFIG_OFFSITE_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET_ACCESS_KEY:-}
+      RCLONE_CONFIG_OFFSITE_ENDPOINT: ${BACKUP_S3_ENDPOINT:-}
+      RCLONE_CONFIG_OFFSITE_NO_CHECK_BUCKET: "true"
     volumes:
-      - ./backup.sh:/backup.sh:ro
       - ${BACKUP_PATH:-./backups}:/backups
-    # one dump at start, then one every 24 hours
-    entrypoint: ["/bin/sh", "-c", "while true; do /bin/sh /backup.sh || echo 'backup failed'; sleep 86400; done"]
+    logging: *logging
+
+networks:
+  default:
+    name: sijill
 
 volumes:
   pgdata:
   caddy_data:
+  caddy_config:

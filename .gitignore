@@ -5,3 +5,10 @@ target/
 __pycache__/
 *.pyc
 scripts/.seed-credentials.txt
+
+# Server-only files when deploy/ is used in place
+deploy/.env
+deploy/state/
+deploy/backups/
+deploy/certs/
+deploy/tls.d/*.caddy
