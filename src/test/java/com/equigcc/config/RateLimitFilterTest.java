@@ -41,6 +41,15 @@ class RateLimitFilterTest {
     }
 
     @Test
+    void percentEncodedPathsCountAsTheEndpointTheyRouteTo() throws Exception {
+        var f = new RateLimitFilter(Clock.fixed(NOW, ZoneOffset.UTC), true, 1, 1000, false);
+        assertThat(call(f, "/api/v1/auth/login", "1.1.1.1", null).getStatus()).isEqualTo(200);
+        assertThat(call(f, "/api/v1/auth/%6Cogin", "1.1.1.1", null).getStatus()).isEqualTo(429);
+        assertThat(call(f, "/%61pi/v1/auth/login", "1.1.1.1", null).getStatus()).isEqualTo(429);
+        assertThat(call(f, "/api/v1/auth/login;x=1", "1.1.1.1", null).getStatus()).isEqualTo(429);
+    }
+
+    @Test
     void windowResets() {
         var clock = new java.util.concurrent.atomic.AtomicLong(NOW.toEpochMilli());
         var f = new RateLimitFilter(new Clock() {

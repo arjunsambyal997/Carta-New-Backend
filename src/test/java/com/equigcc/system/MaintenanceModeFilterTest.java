@@ -35,6 +35,12 @@ class MaintenanceModeFilterTest {
     }
 
     @Test
+    void anEncodedApiPrefixIsStillAWrite() throws Exception {
+        when(system.isReadOnlyNow()).thenReturn(true);
+        assertThat(call("POST", "/%61pi/v1/organizations").getStatus()).isEqualTo(503);
+    }
+
+    @Test
     void readsAndSystemEndpointsKeepWorking() throws Exception {
         when(system.isReadOnlyNow()).thenReturn(true);
         assertThat(call("GET", "/api/v1/organizations").getStatus()).isEqualTo(200);
