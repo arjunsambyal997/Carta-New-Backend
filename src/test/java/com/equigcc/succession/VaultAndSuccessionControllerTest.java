@@ -9,8 +9,8 @@ import com.equigcc.vault.VaultDocumentRepository;
 import com.equigcc.vault.VaultService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
@@ -38,8 +38,8 @@ class VaultAndSuccessionControllerTest {
 
     @Autowired MockMvc mvc;
     @Autowired JwtService jwt;
-    @MockBean VaultService vault;
-    @MockBean SuccessionService succession;
+    @MockitoBean VaultService vault;
+    @MockitoBean SuccessionService succession;
 
     private String token(String role, boolean mfa) {
         return "Bearer " + jwt.issue("u@x.ae", List.of(role), List.of(ORG), mfa, Duration.ofMinutes(5));

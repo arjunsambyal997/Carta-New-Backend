@@ -19,7 +19,7 @@ import com.equigcc.organization.OrganizationRepository;
 import com.equigcc.captable.ShareClassRepository;
 import com.equigcc.captable.ShareholderRepository;
 import com.equigcc.register.RegisterToolsDtos;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -56,7 +56,7 @@ class ApprovalServiceTest {
     private final NoticeService notices = mock(NoticeService.class);
     private final AuditService audit = mock(AuditService.class);
     private final ApprovalService service = new ApprovalService(changes, organizations, members, shareholders, classes, issuance, transfers,
-            vesting, notices, audit, new ObjectMapper().findAndRegisterModules(), Clock.fixed(NOW, ZoneOffset.UTC));
+            vesting, notices, audit, new ObjectMapper(), Clock.fixed(NOW, ZoneOffset.UTC));
 
     private Organization org;
 

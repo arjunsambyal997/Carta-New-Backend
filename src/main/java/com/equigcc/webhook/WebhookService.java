@@ -5,8 +5,8 @@ import com.equigcc.audit.AuditService;
 import com.equigcc.auth.SecretCipher;
 import com.equigcc.common.BusinessRuleException;
 import com.equigcc.common.NotFoundException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -153,7 +153,7 @@ public class WebhookService {
         try {
             return deliveries.save(new WebhookDelivery(endpoint.getId(), endpoint.getOrganizationId(), event.wireName(),
                     json.writeValueAsString(envelope), clock.instant()));
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalStateException(e);
         }
     }
