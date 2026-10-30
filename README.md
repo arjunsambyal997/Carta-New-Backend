@@ -245,6 +245,84 @@ Environment variables set with `$env:` last for that PowerShell window only. The
 
 ### Demo data
 
+#### A full demo world on an empty database (recommended)
+
+`scripts/seed-companies.mjs` loads five fictional companies with their history from incorporation to today, through the API (so certificate hashes, the audit chain and the analytics views come from the real code). It takes 30 to 100 seconds.
+
+| Company | Jurisdiction | What it shows |
+|---|---|---|
+| Qamar Logistics Holdings Ltd (QLH) | ADGM, USD | Founders 2019, angels, seed 2021, Series A 2023, ESOP grants with vesting and exercises, a SAFE and a venture-debt warrant, secondary transfer, leaver buy-back, founder holding company, angel SPV, two-person approvals (pending, approved, rejected), signatures, API key |
+| Sahara Health Labs Limited (SHL) | DIFC, USD | Seed-stage health tech, SPV in-specie distribution, family-office UBO chain, a DIFC beneficial-owner filing |
+| Al Waha General Trading LLC (AWT) | Dubai mainland, AED | Family LLC since 1998: AED 1,000 shares, notarised gifts to children, family holding, non-voting profit shares, death and incapacity succession rules, partners-register and UBO filings |
+| Rimal Financial Technology Company (RFT) | KSA, SAR | Closed JSC whose opening register is loaded from CSV (the import tool), Series A 2024, register filing, pending approval |
+| Bayt Coffee Roasters LLC (BCR) | Dubai mainland, AED | The Qamar founder's second company (company switcher) |
+
+Each company has resolutions in every state (passed, rejected, open with partial votes, draft), vault documents and logos.
+
+**Demo logins.** Every account uses the password `Sijill@Demo2026` (change it with `$env:SEED_PASSWORD` before seeding).
+
+| Email | Name | Role and company |
+|---|---|---|
+| omar@qamar.test | Omar Farouk | Founder, Qamar Logistics **and** Bayt Coffee |
+| hessa@tamkeen.test | Hessa Al Marzooqi | Corporate secretary, Qamar Logistics **and** Al Waha |
+| james@falconridge.test | James Whitfield | Board member, Qamar Logistics **and** Rimal |
+| mona@qamar.test | Mona Al Zaabi | Board member, Qamar Logistics |
+| elena@crescentaudit.test | Elena Petrova | Legal auditor, Qamar Logistics **and** Rimal |
+| priya@qamar.test | Priya Raman | Shareholder portal, Qamar Logistics (co-founder) |
+| tariq@nasser.test | Tariq Nasser | Shareholder portal, Qamar Logistics **and** Sahara Health (angel) |
+| nadia@saharahealth.test | Dr. Nadia Al Hammadi | Founder, Sahara Health |
+| farah@saharahealth.test | Farah Siddiqui | Corporate secretary, Sahara Health |
+| khalid@saharahealth.test | Khalid Al Rumaithi | Board member, Sahara Health |
+| saeed@alwaha.test | Saeed Rashid Al Falasi | Founder, Al Waha |
+| maryam@alwaha.test | Maryam Al Falasi | Board member, Al Waha |
+| hamad@alwaha.test | Hamad Al Falasi | Shareholder portal, Al Waha |
+| faisal@rimal.test | Faisal Al Otaibi | Founder, Rimal |
+| abeer@rimal.test | Abeer Al Qahtani | Corporate secretary, Rimal |
+| sultan@rimal.test | Sultan Al Harbi | Board member, Rimal |
+| lama@rimal.test | Lama Al Shehri | Shareholder portal, Rimal |
+| lina@baytcoffee.test | Lina Saab | Shareholder portal, Bayt Coffee |
+
+People in two companies see a company picker after signing in. Every account has two-factor enrolled. Start the backend with `DEV_SKIP_MFA=true` (development only) and email + password is enough; otherwise the authenticator secrets are written to `scripts/.seed-credentials.txt` (git-ignored) and `node scripts/totp.mjs <secret>` prints the current code.
+
+What is not filled: ADGM has no filing deadlines modelled, so Qamar's Filing deadlines page is empty by design; the Analytics page needs Metabase set up (`docs/ANALYTICS.md`), and then reads the seeded rows from the `analytics.*` views. All names, licence numbers, funds and `.test` email domains are made up.
+
+**Clean load on Windows PowerShell**, from the backend folder. Pick the block that matches how you run the database.
+
+Docker (`docker compose`):
+
+```powershell
+git pull
+docker compose down -v                                   # deletes the database volume: every company and user is gone
+$env:DEV_SKIP_MFA="true"; $env:RATE_LIMIT_ENABLED="false"
+docker compose up -d --build
+# wait until this prints {"status":...}, then seed
+curl.exe -s http://localhost:8081/api/v1/system/status
+$env:API_URL="http://localhost:8081"; node scripts/seed-companies.mjs
+```
+
+Your own PostgreSQL (`mvn spring-boot:run`), using a dedicated database called `sijill`:
+
+```powershell
+git pull
+# 1. wipe: drop and recreate the database (stop the backend first). psql is in C:\Program Files\PostgreSQL\16\bin if it is not on PATH
+psql -U postgres -c "DROP DATABASE IF EXISTS sijill WITH (FORCE);" -c "CREATE DATABASE sijill;"
+
+# 2. start the backend (terminal 1); Flyway creates the schema
+$env:DB_URL="jdbc:postgresql://localhost:5432/sijill"; $env:DB_USER="postgres"; $env:DB_PASSWORD="<your password>"
+$env:DEV_SKIP_MFA="true"; $env:RATE_LIMIT_ENABLED="false"
+mvn spring-boot:run
+
+# 3. seed (terminal 2, once the backend logs "Started")
+$env:API_URL="http://localhost:8080"; node scripts/seed-companies.mjs
+```
+
+If you keep the data in the default `postgres` database instead, wipe it with
+`psql -U postgres -d postgres -c "DROP SCHEMA IF EXISTS analytics CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;"` and keep your usual `DB_URL`.
+
+Running the seed twice is safe: a company whose founder already exists is skipped. With the rate limit left on, the seed pauses for a minute when it hits the sign-in limit and carries on.
+
+#### Filling a company you created yourself
+
 `scripts/seed-demo.mjs` (Node 20+, no install step) fills an organization you already created with realistic data: five share classes (voting, 10-vote founder, Series A preferred with a 1.5x preference, non-voting, treasury), 14 shareholders with Arabic names, issuances, holding companies with multi-level ownership for the UBO report (two beneficial owners, one three levels deep, plus one deliberate gap), five board resolutions (passed, rejected, open with partial votes, draft), three draft succession rules and six vault documents.
 
 It asks for your email, password (hidden) and the current authenticator code; nothing is saved. In PowerShell, from the backend folder, with the backend on port 8081 as in the Docker setup (use 8080 for `mvn spring-boot:run`):

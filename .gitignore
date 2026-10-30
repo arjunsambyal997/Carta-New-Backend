@@ -5,6 +5,7 @@ target/
 __pycache__/
 *.pyc
 scripts/.seed-credentials.txt
+scripts/.seed-credentials.json
 
 # Server-only files when deploy/ is used in place
 deploy/.env
