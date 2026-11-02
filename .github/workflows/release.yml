@@ -59,7 +59,7 @@ jobs:
             type=raw,value=main,enable=${{ github.ref == 'refs/heads/main' }}
             type=sha,prefix=sha-
       # Arm for the Oracle Ampere server, amd64 for everything else.
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
